@@ -1,0 +1,13 @@
+{
+    "mcpServers": {
+      "arthas-jvm-monitor": {
+        "command": "uv",
+        "args": [
+          "--directory",
+          "/Users/xzq.xu/Desktop/jvm-mcp-server",
+          "run",
+          "arthas_mcp_server.py"
+        ]
+      }
+    }
+}
