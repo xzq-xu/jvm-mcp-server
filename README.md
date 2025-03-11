@@ -18,44 +18,49 @@
 
 ## 系统要求
 
-- Python 3.7+
+- Python 3.10+
 - Java Runtime Environment (JRE) 8+
 - 网络连接（用于下载Arthas）
 - 如果使用远程模式，需要目标服务器的SSH访问权限
 
-## 安装
+## 安装与环境配置
+
+### 1. 安装uv工具
 
 ```bash
-pip install jvm-mcp-server
+# 使用x-cmd安装uv
+eval "$(curl https://get.x-cmd.com)"
+x env use uv
 ```
 
-> 本地开发安装
+### 2. 克隆项目
 
 ```bash
 git clone https://github.com/xzq-xu/jvm-mcp-server.git
-cd jvm-mcp-server 
-uv pip install -e .
+cd jvm-mcp-server
 ```
 
-## 快速开始
+### 3. 使用uv初始化项目环境
 
-1. 本地模式启动：
+```bash
+# 创建虚拟环境
+uv venv
 
-```python
-from jvm_mcp_server import JvmMcpServer
-
-server = JvmMcpServer()
-server.run()
+# 安装项目依赖
+uv install
+# 或者
+uv sync
 ```
 
-2. 远程模式启动（通过SSH连接）：
+### 4. 配置环境变量（可选，用于远程连接）
 
-首先设置环境变量：
+创建`.env`文件并添加以下配置：
+
 ```bash
 # Linux/Mac
-export ARTHAS_SSH_HOST=user@remote-host
-export ARTHAS_SSH_PORT=22  # 可选，默认22
-export ARTHAS_SSH_PASSWORD=your-password  # 如果使用密码认证
+ARTHAS_SSH_HOST=user@remote-host
+ARTHAS_SSH_PORT=22  # 可选，默认22
+ARTHAS_SSH_PASSWORD=your-password  # 如果使用密码认证
 
 # Windows PowerShell
 $env:ARTHAS_SSH_HOST="user@remote-host"
@@ -63,7 +68,23 @@ $env:ARTHAS_SSH_PORT="22"  # 可选，默认22
 $env:ARTHAS_SSH_PASSWORD="your-password"  # 如果使用密码认证
 ```
 
-然后启动服务器：
+## 快速开始
+
+1. 使用uv启动服务器：
+
+```bash
+# 本地模式启动
+uv run jvm-mcp-server
+
+# 使用环境变量文件启动（如果有配置远程连接）
+uv run --env-file .env jvm-mcp-server
+
+# 在指定目录下启动（如果需要）
+uv --directory /path/to/project run --env-file .env jvm-mcp-server
+```
+
+2. 在Python代码中使用：
+
 ```python
 from jvm_mcp_server import JvmMcpServer
 
@@ -83,16 +104,6 @@ status = server.mcp.tools.get_jvm_status(pid=12345)
 # 获取线程信息
 thread_info = server.mcp.tools.get_thread_info(pid=12345)
 ```
-
-> 在cursor中使用
-``` bash
-uv --directory D:/personal/jvm-mcp-server run --env-file D:/personal/jvm-mcp-server/.env jvm-mcp-server
-## --directory D:/personal/jvm-mcp-server 为项目位置 
-### --env-file D:/personal/jvm-mcp-server/.env  指定配置文件  
-
-
-```
-
 
 ## 可用工具
 
