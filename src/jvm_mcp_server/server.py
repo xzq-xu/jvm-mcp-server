@@ -132,6 +132,82 @@ class JvmMcpServer:
                 "timestamp": time.time()
             }
 
+        @self.mcp.tool()
+        def get_version(pid: int) -> Dict:
+            """获取Arthas版本信息"""
+            output = self.arthas.get_version(pid)
+            return {
+                "raw_output": output,
+                "timestamp": time.time()
+            }
+
+        @self.mcp.tool()
+        def get_stack_trace_by_method(pid: int, class_pattern: str, method_pattern: str) -> Dict:
+            """获取方法的调用路径"""
+            output = self.arthas.get_stack_trace_by_method(pid, class_pattern, method_pattern)
+            return {
+                "raw_output": output,
+                "timestamp": time.time()
+            }
+
+        @self.mcp.tool()
+        def decompile_class(pid: int, class_pattern: str, method_pattern: str = None) -> Dict:
+            """反编译指定类的源码"""
+            output = self.arthas.decompile_class(pid, class_pattern, method_pattern)
+            return {
+                "raw_output": output,
+                "timestamp": time.time()
+            }
+
+        @self.mcp.tool()
+        def search_method(pid: int, class_pattern: str, method_pattern: str = None) -> Dict:
+            """查看类的方法信息"""
+            output = self.arthas.search_method(pid, class_pattern, method_pattern)
+            return {
+                "raw_output": output,
+                "timestamp": time.time()
+            }
+
+        @self.mcp.tool()
+        def watch_method(pid: int, class_pattern: str, method_pattern: str, 
+                        watch_params: bool = True, watch_return: bool = True,
+                        condition: str = None, max_times: int = 10) -> Dict:
+            """监控方法的调用情况"""
+            output = self.arthas.watch_method(pid, class_pattern, method_pattern,
+                                            watch_params, watch_return,
+                                            condition, max_times)
+            return {
+                "raw_output": output,
+                "timestamp": time.time()
+            }
+
+        @self.mcp.tool()
+        def get_logger_info(pid: int, name: str = None) -> Dict:
+            """获取logger信息"""
+            output = self.arthas.get_logger_info(pid, name)
+            return {
+                "raw_output": output,
+                "timestamp": time.time()
+            }
+
+        @self.mcp.tool()
+        def set_logger_level(pid: int, name: str, level: str) -> Dict:
+            """设置logger级别"""
+            output = self.arthas.set_logger_level(pid, name, level)
+            return {
+                "raw_output": output,
+                "timestamp": time.time()
+            }
+
+        @self.mcp.tool()
+        def get_dashboard(pid: int) -> Dict:
+            """获取系统实时数据面板"""
+            output = self.arthas.get_dashboard(pid)
+            return {
+                "raw_output": output,
+                "timestamp": time.time()
+            }
+
     def _setup_prompts(self):
         """设置MCP提示"""
         @self.mcp.prompt()

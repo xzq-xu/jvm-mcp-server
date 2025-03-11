@@ -379,3 +379,93 @@ class ArthasClient:
         else:
             result = subprocess.run(["jps", "-l", "-v"], capture_output=True, text=True)
             return result.stdout 
+
+    def get_version(self, pid: int) -> str:
+        """获取Arthas版本信息"""
+        return self._execute_command(pid, "version")
+
+    def get_stack_trace_by_method(self, pid: int, class_pattern: str, method_pattern: str) -> str:
+        """获取方法的调用路径
+        
+        Args:
+            pid: 进程ID
+            class_pattern: 类名表达式
+            method_pattern: 方法名表达式
+        """
+        return self._execute_command(pid, f"stack {class_pattern} {method_pattern}")
+
+    def decompile_class(self, pid: int, class_pattern: str, method_pattern: str = None) -> str:
+        """反编译指定类的源码
+        
+        Args:
+            pid: 进程ID
+            class_pattern: 类名表达式
+            method_pattern: 可选的方法名，如果指定则只反编译特定方法
+        """
+        command = f"jad {class_pattern}"
+        if method_pattern:
+            command += f" {method_pattern}"
+        return self._execute_command(pid, command)
+
+    def search_method(self, pid: int, class_pattern: str, method_pattern: str = None) -> str:
+        """查看类的方法信息
+        
+        Args:
+            pid: 进程ID
+            class_pattern: 类名表达式
+            method_pattern: 可选的方法名表达式
+        """
+        command = f"sm {class_pattern}"
+        if method_pattern:
+            command += f" {method_pattern}"
+        return self._execute_command(pid, command)
+
+    def watch_method(self, pid: int, class_pattern: str, method_pattern: str, 
+                    watch_params: bool = True, watch_return: bool = True, 
+                    condition: str = None, max_times: int = 10) -> str:
+        """监控方法的调用情况
+        
+        Args:
+            pid: 进程ID
+            class_pattern: 类名表达式
+            method_pattern: 方法名表达式
+            watch_params: 是否监控参数
+            watch_return: 是否监控返回值
+            condition: 条件表达式
+            max_times: 最大监控次数
+        """
+        command = f"watch {class_pattern} {method_pattern}"
+        if watch_params:
+            command += " params"
+        if watch_return:
+            command += " returnObj"
+        if condition:
+            command += f" '{condition}'"
+        command += f" -n {max_times}"
+        return self._execute_command(pid, command)
+
+    def get_logger_info(self, pid: int, name: str = None) -> str:
+        """获取logger信息
+        
+        Args:
+            pid: 进程ID
+            name: logger名称
+        """
+        command = "logger"
+        if name:
+            command += f" --name {name}"
+        return self._execute_command(pid, command)
+
+    def set_logger_level(self, pid: int, name: str, level: str) -> str:
+        """设置logger级别
+        
+        Args:
+            pid: 进程ID
+            name: logger名称
+            level: 日志级别(trace, debug, info, warn, error)
+        """
+        return self._execute_command(pid, f"logger --name {name} --level {level}")
+
+    def get_dashboard(self, pid: int) -> str:
+        """获取系统实时数据面板"""
+        return self._execute_command(pid, "dashboard") 
