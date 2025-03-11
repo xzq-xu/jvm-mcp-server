@@ -2,6 +2,7 @@
 
 import json
 import time
+import os
 from typing import List, Dict, Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -10,9 +11,29 @@ from .arthas import ArthasClient
 class JvmMcpServer:
     """JVM MCP服务器"""
     def __init__(self, name: str = "arthas-jvm-monitor"):
+        """
+        初始化JVM MCP服务器
+        Args:
+            name: 服务器名称
+        
+        Environment Variables:
+            ARTHAS_SSH_HOST: SSH连接地址，格式为 user@host，不存在则表示本地连接
+            ARTHAS_SSH_PORT: SSH端口，默认22
+            ARTHAS_SSH_PASSWORD: SSH密码，不存在则使用密钥认证
+        """
         self.name = name
         self.mcp = FastMCP(name)
-        self.arthas = ArthasClient()
+        
+        # 从环境变量读取SSH连接参数
+        ssh_host = os.getenv('ARTHAS_SSH_HOST')
+        ssh_port = int(os.getenv('ARTHAS_SSH_PORT', '22'))
+        ssh_password = os.getenv('ARTHAS_SSH_PASSWORD')
+        
+        self.arthas = ArthasClient(
+            ssh_host=ssh_host,
+            ssh_port=ssh_port,
+            ssh_password=ssh_password
+        )
         self._setup_tools()
         self._setup_prompts()
 

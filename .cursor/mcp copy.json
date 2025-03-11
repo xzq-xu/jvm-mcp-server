@@ -3,6 +3,8 @@
       "jvm-mcp-server": {
         "command": "uv",
         "args": [
+          "--directory",
+          "D:/personal/jvm-mcp-server/jvm-mcp-server",
           "run",
           "--env-file",
           "D:/personal/jvm-mcp-server/jvm-mcp-server/.env",

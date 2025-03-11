@@ -5,6 +5,7 @@
 ## 功能特点
 
 - 自动下载和管理Arthas工具
+- 支持本地和远程Java进程监控
 - 提供Java进程列表查询
 - 实时获取JVM线程信息
 - 监控JVM内存使用情况
@@ -17,13 +18,15 @@
 - Python 3.7+
 - Java Runtime Environment (JRE) 8+
 - 网络连接（用于下载Arthas）
+- 如果使用远程模式，需要目标服务器的SSH访问权限
 
 ## 安装
 
 ```bash
 pip install jvm-mcp-server
 ```
-> 本地安装
+
+> 本地开发安装
 
 ```bash
 git clone https://github.com/xzq-xu/jvm-mcp-server.git
@@ -31,11 +34,9 @@ cd jvm-mcp-server
 uv pip install -e .
 ```
 
-
-
 ## 快速开始
 
-1. 启动服务器：
+1. 本地模式启动：
 
 ```python
 from jvm_mcp_server import JvmMcpServer
@@ -44,7 +45,30 @@ server = JvmMcpServer()
 server.run()
 ```
 
-2. 使用MCP工具：
+2. 远程模式启动（通过SSH连接）：
+
+首先设置环境变量：
+```bash
+# Linux/Mac
+export ARTHAS_SSH_HOST=user@remote-host
+export ARTHAS_SSH_PORT=22  # 可选，默认22
+export ARTHAS_SSH_PASSWORD=your-password  # 如果使用密码认证
+
+# Windows PowerShell
+$env:ARTHAS_SSH_HOST="user@remote-host"
+$env:ARTHAS_SSH_PORT="22"  # 可选，默认22
+$env:ARTHAS_SSH_PASSWORD="your-password"  # 如果使用密码认证
+```
+
+然后启动服务器：
+```python
+from jvm_mcp_server import JvmMcpServer
+
+server = JvmMcpServer()
+server.run()
+```
+
+3. 使用MCP工具：
 
 ```python
 # 获取所有Java进程列表
@@ -57,17 +81,14 @@ status = server.mcp.tools.get_jvm_status(pid=12345)
 thread_info = server.mcp.tools.get_thread_info(pid=12345)
 ```
 
+> 在cursor中使用
+``` bash
+uv --directory D:/personal/jvm-mcp-server run --env-file D:/personal/jvm-mcp-server/.env jvm-mcp-server
+## --directory D:/personal/jvm-mcp-server 为项目位置 
+### --env-file D:/personal/jvm-mcp-server/.env  指定配置文件  
 
-## 在Cursor中使用
-
-```bash
-# 配置命令
-uv --directoy D:/persona/jvm-mcp-sever-package run jvm-mcp-server
-# atthas-boot.jar 将被下载到   D:/persona/jvm-mcp-sever-package  目录下
 
 ```
-
-
 
 
 ## 可用工具
@@ -130,9 +151,10 @@ uv --directoy D:/persona/jvm-mcp-sever-package run jvm-mcp-server
 ## 注意事项
 
 1. 确保运行环境中已安装Java
-2. 首次运行时会自动下载Arthas工具
+2. 首次运行时会自动下载Arthas工具（arthas将被下载的家目录下，可以提前下载（命名为arthas-boot.jar））
 3. 需要目标Java进程的访问权限
-4. 建议在开发环境中使用，生产环境使用需谨慎评估
+4. 远程模式需要SSH访问权限和适当的用户权限
+5. 建议在开发环境中使用，生产环境使用需谨慎评估
 
 ## 问题反馈
 
