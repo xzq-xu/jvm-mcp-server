@@ -4,7 +4,7 @@
         "command": "uv",
         "args": [
           "--directory",
-          "/Users/xzq.xu/Desktop/jvm-mcp-server",
+          "D:/personal/jvm-mcp-server/jvm-mcp-server",
           "run",
           "arthas_mcp_server.py"
         ]

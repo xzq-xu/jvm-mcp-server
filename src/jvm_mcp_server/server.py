@@ -80,7 +80,7 @@ class JvmMcpServer:
             }
 
         @self.mcp.tool()
-        def get_jvm_status(pid: Optional[int] = None) -> Dict:
+        def get_jvm_status(pid: int) -> Dict:
             """获取JVM整体状态报告
             
             Args:
@@ -116,20 +116,17 @@ class JvmMcpServer:
         @self.mcp.prompt()
         def jvm_analysis_prompt(status: Dict) -> str:
             """创建JVM分析提示"""
-            status_json = json.dumps(status, indent=2)
-            return f"""你是一位经验丰富的Java性能调优专家，请基于以下JVM状态数据进行分析：
+            
+            return f"""你是一位经验丰富的Java性能调优专家，
+            请考虑以下方面：
+            1. JVM整体健康状况
+            2. 内存使用情况和潜在的内存问题
+            3. 线程状态和可能的死锁
+            4. 性能优化建议
+            5. 需要关注的警告信息
 
-{status_json}
-
-请考虑以下方面：
-1. JVM整体健康状况
-2. 内存使用情况和潜在的内存问题
-3. 线程状态和可能的死锁
-4. 性能优化建议
-5. 需要关注的警告信息
-
-请提供详细的分析报告和具体的优化建议。
-"""
+            请提供详细的分析报告和具体的优化建议。
+            """
 
     def run(self):
         """运行服务器"""

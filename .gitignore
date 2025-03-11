@@ -8,3 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+
+
+# 其他文件
+arthas-boot.jar
+math-game.jar
