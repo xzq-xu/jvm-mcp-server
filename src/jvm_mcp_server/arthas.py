@@ -161,7 +161,7 @@ class ArthasClient:
                     raise Exception(error_msg)
 
                 # 启动Arthas并保持会话
-                cmd = f"java -jar arthas-boot.jar {pid}"
+                cmd = f"java -jar arthas-boot.jar --telnet-port {self.telnet_port} --http-port -1 {pid}"
                 logger.debug(f"执行远程命令: {cmd}")
                 
                 # 使用get_pty=True来模拟终端，并保持会话
@@ -211,18 +211,22 @@ class ArthasClient:
             # 本地启动Arthas
             logger.info("在本地启动Arthas")
             try:
+                cmd = [
+                    "java", "-jar", self.arthas_boot_path,
+                    "--telnet-port", str(self.telnet_port),
+                    "--http-port", "-1",
+                    str(pid)
+                ]
+                logger.debug(f"执行本地命令: {' '.join(cmd)}")
+                
                 process = subprocess.Popen(
-                    ["java", "-jar", self.arthas_boot_path, 
-                     "--target-ip", "127.0.0.1",
-                     "--telnet-port", str(self.telnet_port),
-                     "--arthas-port", str(self.telnet_port + 1),
-                     str(pid)],
+                    cmd,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE
                 )
                 
                 # 等待Arthas启动
-                time.sleep(5)
+                time.sleep(2)
                 
                 # 检查进程是否有错误
                 error = process.stderr.read().decode('utf-8')
@@ -246,10 +250,6 @@ class ArthasClient:
                     
             except (socket.error, EOFError) as e:
                 logger.error(f"连接Arthas失败: {e}")
-                self._disconnect()
-                raise
-            except Exception as e:
-                logger.error(f"连接过程中发生错误: {e}")
                 self._disconnect()
                 raise
 
@@ -317,8 +317,15 @@ class ArthasClient:
             # 先尝试直接连接telnet
             if not self.telnet:
                 try:
+                    # 如果是远程模式，确保SSH连接有效
+                    if self.ssh_host:
+                        self._ensure_ssh_connection()
+                        host = "localhost"  # SSH端口转发后连接本地端口
+                    else:
+                        host = "localhost"
+                        
                     logger.info(f"尝试直接连接到端口 {self.telnet_port}")
-                    self.telnet = telnetlib.Telnet("localhost", self.telnet_port, timeout=2)
+                    self.telnet = telnetlib.Telnet(host, self.telnet_port, timeout=2)
                     # 等待提示符确认连接成功
                     response = self.telnet.read_until(b"$", timeout=2).decode('utf-8')
                     if "arthas" in response.lower():
@@ -329,6 +336,9 @@ class ArthasClient:
                 except Exception as e:
                     logger.debug(f"直接连接失败: {e}")
                     self._disconnect()
+                    # 如果是远程模式，确保SSH连接有效
+                    if self.ssh_host:
+                        self._ensure_ssh_connection()
                     # 如果直接连接失败，尝试启动新的Arthas会话
                     self._attach_to_process(pid)
             
