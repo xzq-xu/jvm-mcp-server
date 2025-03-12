@@ -13,6 +13,81 @@ from typing import Optional, Dict, Union
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+class LocalProcessChannel:
+    """模拟SSH Channel的本地进程封装"""
+    def __init__(self, command: list):
+        """
+        初始化本地进程通道
+        Args:
+            command: 要执行的命令列表
+        """
+        import platform
+        # Windows下需要特殊处理
+        if platform.system() == 'Windows':
+            import subprocess
+            self.process = subprocess.Popen(
+                command,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                shell=True,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
+            )
+        else:
+            # Linux/Mac下使用伪终端
+            import pty
+            import os
+            self.master, slave = pty.openpty()
+            self.process = subprocess.Popen(
+                command,
+                stdin=slave,
+                stdout=slave,
+                stderr=slave,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
+            )
+            os.close(slave)
+
+    def send(self, data: str):
+        """发送数据到进程"""
+        if isinstance(data, str):
+            data = data.encode('utf-8')
+        if platform.system() == 'Windows':
+            self.process.stdin.write(data.decode('utf-8'))
+            self.process.stdin.flush()
+        else:
+            os.write(self.master, data)
+
+    def recv(self, size: int = 1024) -> bytes:
+        """从进程接收数据"""
+        if platform.system() == 'Windows':
+            return self.process.stdout.read1(size).encode('utf-8')
+        else:
+            return os.read(self.master, size)
+
+    def recv_ready(self) -> bool:
+        """检查是否有数据可读"""
+        import select
+        if platform.system() == 'Windows':
+            return True  # Windows下简单处理
+        else:
+            r, _, _ = select.select([self.master], [], [], 0)
+            return bool(r)
+
+    def close(self):
+        """关闭进程"""
+        if platform.system() != 'Windows':
+            os.close(self.master)
+        self.process.terminate()
+        self.process.wait()
+
+    def __del__(self):
+        """析构时确保进程被关闭"""
+        self.close()
+
 class ArthasClient:
     """Arthas客户端封装类"""
     def __init__(self, 
@@ -211,43 +286,48 @@ class ArthasClient:
             # 本地启动Arthas
             logger.info("在本地启动Arthas")
             try:
-                process = subprocess.Popen(
-                    ["java", "-jar", self.arthas_boot_path, 
-                     "--target-ip", "127.0.0.1",
-                     "--telnet-port", str(self.telnet_port),
-                     "--arthas-port", str(self.telnet_port + 1),
-                     str(pid)],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
-                )
+                # 构建启动命令
+                cmd = ["java", "-jar", self.arthas_boot_path, str(pid)]
                 
-                # 等待Arthas启动
-                time.sleep(5)
+                # 创建本地进程通道
+                self.arthas_channel = LocalProcessChannel(cmd)
                 
-                # 检查进程是否有错误
-                error = process.stderr.read().decode('utf-8')
-                if error:
-                    logger.error(f"启动Arthas失败: {error}")
-                    raise Exception(f"启动Arthas失败: {error}")
+                # 等待Arthas启动并检查输出
+                start_time = time.time()
+                success = False
+                error_msg = None
+                buffer = ""
                 
-                # 建立telnet连接
-                logger.debug(f"连接到本地端口 {self.telnet_port}")
-                self.telnet = telnetlib.Telnet("127.0.0.1", self.telnet_port, timeout=10)
-                self.attached_pid = pid
+                while time.time() - start_time < 30:  # 最多等待30秒
+                    if self.arthas_channel.recv_ready():
+                        try:
+                            output = self.arthas_channel.recv(1024).decode('utf-8')
+                            buffer += output
+                            logger.debug(f"Arthas输出: {output}")
+                            
+                            if "Can not attach to target process" in buffer:
+                                error_msg = "无法附加到目标进程，可能是权限问题"
+                                break
+                            elif "ERROR" in buffer:
+                                error_msg = f"启动Arthas时发生错误: {buffer}"
+                                break
+                            elif "$" in buffer:  # Arthas的命令提示符
+                                success = True
+                                break
+                        except UnicodeDecodeError:
+                            continue
+                    time.sleep(0.1)
                 
-                try:
-                    self.telnet.read_until(b"$", timeout=10)
-                    logger.info(f"成功连接到进程 {pid}")
-                except EOFError:
-                    error_msg = "连接到Arthas失败，可能是进程不存在或没有权限"
+                if not success:
+                    if error_msg is None:
+                        error_msg = "启动Arthas超时"
                     logger.error(error_msg)
                     self._disconnect()
                     raise Exception(error_msg)
-                    
-            except (socket.error, EOFError) as e:
-                logger.error(f"连接Arthas失败: {e}")
-                self._disconnect()
-                raise
+                
+                logger.info("Arthas启动成功")
+                self.attached_pid = pid
+                
             except Exception as e:
                 logger.error(f"连接过程中发生错误: {e}")
                 self._disconnect()
@@ -276,16 +356,18 @@ class ArthasClient:
         """断开与Arthas的连接"""
         if hasattr(self, 'arthas_channel') and self.arthas_channel:
             try:
-                # 发送quit命令给Arthas
-                self.arthas_channel.send('quit\n')
-                time.sleep(1)  # 等待命令执行
+                if isinstance(self.arthas_channel, LocalProcessChannel):
+                    self.arthas_channel.send('quit\n')
+                else:
+                    self.arthas_channel.send('quit\n')
+                time.sleep(1)
                 self.arthas_channel.close()
             except:
                 pass
             finally:
                 self.arthas_channel = None
                 self.attached_pid = None
-                
+        
         if self.ssh:
             try:
                 self.ssh.close()
