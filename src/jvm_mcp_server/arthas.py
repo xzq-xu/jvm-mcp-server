@@ -314,31 +314,54 @@ class ArthasClient:
     def _execute_command(self, pid: int, command: str) -> str:
         """执行Arthas命令"""
         try:
-            # 如果是远程模式，确保SSH连接有效
-            if self.ssh_host:
-                self._ensure_ssh_connection()
-                
-            self._attach_to_process(pid)
+            # 先尝试直接连接telnet
+            if not self.telnet:
+                try:
+                    logger.info(f"尝试直接连接到端口 {self.telnet_port}")
+                    self.telnet = telnetlib.Telnet("localhost", self.telnet_port, timeout=2)
+                    # 等待提示符确认连接成功
+                    response = self.telnet.read_until(b"$", timeout=2).decode('utf-8')
+                    if "arthas" in response.lower():
+                        logger.info("成功连接到现有的Arthas会话")
+                        self.current_pid = pid
+                    else:
+                        self._disconnect()
+                except Exception as e:
+                    logger.debug(f"直接连接失败: {e}")
+                    self._disconnect()
+                    # 如果直接连接失败，尝试启动新的Arthas会话
+                    self._attach_to_process(pid)
+            
+            if not self.telnet:
+                raise Exception("未能连接到Arthas")
             
             # 发送命令
-            self.arthas_channel.send(command + '\n')
+            logger.debug(f"发送命令: {command}")
+            self.telnet.write(command.encode('utf-8') + b'\n')
             
             # 读取响应直到下一个提示符
             buffer = ""
             start_time = time.time()
             
             while time.time() - start_time < 10:  # 最多等待10秒
-                if self.arthas_channel.recv_ready():
-                    output = self.arthas_channel.recv(1024).decode('utf-8')
-                    buffer += output
-                    if '$' in output:  # 找到命令提示符
+                try:
+                    response = self.telnet.read_until(b"$", timeout=1).decode('utf-8')
+                    buffer += response
+                    if '$' in response:  # 找到命令提示符
                         break
-                time.sleep(0.1)
+                except EOFError:
+                    logger.error("连接已断开")
+                    self._disconnect()
+                    raise Exception("连接已断开")
+                except socket.timeout:
+                    continue
             
             # 处理响应
             lines = buffer.split('\n')
             # 移除命令回显和最后的提示符
-            return '\n'.join(line for line in lines[1:-1] if line.strip())
+            result = '\n'.join(line for line in lines[1:-1] if line.strip())
+            logger.debug(f"命令执行结果: {result}")
+            return result
             
         except Exception as e:
             logger.error(f"执行命令时发生错误: {e}")
