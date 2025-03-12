@@ -286,66 +286,78 @@ class ArthasClient:
             # 本地启动Arthas
             logger.info("在本地启动Arthas")
             try:
-
+                # 使用subprocess.Popen启动Arthas
                 cmd = [
                     "java", "-jar", self.arthas_boot_path,
+                    "--target-ip", "127.0.0.1",
                     "--telnet-port", str(self.telnet_port),
                     "--http-port", "-1",
                     str(pid)
                 ]
                 logger.debug(f"执行本地命令: {' '.join(cmd)}")
                 
+                # 使用subprocess.PIPE来捕获输出
                 process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
+                    stderr=subprocess.PIPE,
+                    universal_newlines=True,  # 使用文本模式
+                    bufsize=1  # 行缓冲
                 )
-                
-                # 等待Arthas启动
-                time.sleep(2)
-
                 
                 # 等待Arthas启动并检查输出
                 start_time = time.time()
                 success = False
                 error_msg = None
-                buffer = ""
                 
                 while time.time() - start_time < 30:  # 最多等待30秒
-                    if self.arthas_channel.recv_ready():
-                        try:
-                            output = self.arthas_channel.recv(1024).decode('utf-8')
-                            buffer += output
-                            logger.debug(f"Arthas输出: {output}")
-                            
-                            if "Can not attach to target process" in buffer:
-                                error_msg = "无法附加到目标进程，可能是权限问题"
-                                break
-                            elif "ERROR" in buffer:
-                                error_msg = f"启动Arthas时发生错误: {buffer}"
-                                break
-                            elif "$" in buffer:  # Arthas的命令提示符
-                                success = True
-                                break
-                        except UnicodeDecodeError:
-                            continue
-                    time.sleep(0.1)
+                    # 检查进程是否还在运行
+                    if process.poll() is not None:
+                        error_msg = f"Arthas进程意外退出，返回码: {process.returncode}"
+                        break
+                        
+                    # 尝试建立telnet连接
+                    try:
+                        logger.debug(f"尝试连接到本地端口 {self.telnet_port}")
+                        self.telnet = telnetlib.Telnet("127.0.0.1", self.telnet_port, timeout=2)
+                        
+                        # 等待提示符确认连接成功
+                        response = self.telnet.read_until(b"$", timeout=2).decode('utf-8')
+                        if "arthas" in response.lower():
+                            logger.info(f"成功连接到进程 {pid}")
+                            success = True
+                            self.attached_pid = pid
+                            # 保存进程引用以便后续管理
+                            self.arthas_process = process
+                            break
+                        else:
+                            self.telnet.close()
+                            self.telnet = None
+                    except (socket.error, EOFError, socket.timeout):
+                        # 连接失败，继续等待
+                        pass
+                        
+                    # 检查是否有错误输出
+                    stderr_data = process.stderr.readline()
+                    if stderr_data:
+                        error_msg = f"Arthas启动错误: {stderr_data.strip()}"
+                        break
+                        
+                    time.sleep(1)
                 
                 if not success:
+                    # 如果没有成功，确保清理资源
+                    if process.poll() is None:
+                        process.terminate()
+                        process.wait(timeout=5)
                     if error_msg is None:
                         error_msg = "启动Arthas超时"
                     logger.error(error_msg)
                     self._disconnect()
                     raise Exception(error_msg)
-
-
-                
-                logger.info("Arthas启动成功")
-                self.attached_pid = pid
-                
+                    
             except Exception as e:
-                logger.error(f"连接过程中发生错误: {e}")
-
+                logger.error(f"启动Arthas失败: {e}")
                 self._disconnect()
                 raise
 
@@ -372,17 +384,40 @@ class ArthasClient:
         """断开与Arthas的连接"""
         if hasattr(self, 'arthas_channel') and self.arthas_channel:
             try:
-                if isinstance(self.arthas_channel, LocalProcessChannel):
-                    self.arthas_channel.send('quit\n')
-                else:
-                    self.arthas_channel.send('quit\n')
-                time.sleep(1)
+                # 发送quit命令给Arthas
+                self.arthas_channel.send('quit\n'.encode('utf-8'))
+                time.sleep(1)  # 等待命令执行
                 self.arthas_channel.close()
             except:
                 pass
             finally:
                 self.arthas_channel = None
                 self.attached_pid = None
+
+        if self.telnet:
+            try:
+                self.telnet.write(b"quit\n")  # 发送quit命令给Arthas
+                time.sleep(1)  # 等待命令执行
+                self.telnet.close()
+            except:
+                pass
+            finally:
+                self.telnet = None
+                self.attached_pid = None
+        
+        # 清理本地Arthas进程
+        if hasattr(self, 'arthas_process') and self.arthas_process:
+            try:
+                if self.arthas_process.poll() is None:  # 如果进程还在运行
+                    self.arthas_process.terminate()  # 先尝试正常终止
+                    try:
+                        self.arthas_process.wait(timeout=5)  # 等待最多5秒
+                    except subprocess.TimeoutExpired:
+                        self.arthas_process.kill()  # 如果等待超时，强制终止
+            except:
+                pass
+            finally:
+                self.arthas_process = None
         
         if self.ssh:
             try:
@@ -412,64 +447,117 @@ class ArthasClient:
     def _execute_command(self, pid: int, command: str) -> str:
         """执行Arthas命令"""
         try:
-            # 先尝试直接连接telnet
-            if not self.telnet:
+            # 如果还没有连接到进程，先连接
+            if self.attached_pid != pid:
+                self._attach_to_process(pid)
+            
+            if self.ssh_host:
+                # 远程模式：使用SSH Channel执行命令
+                if not hasattr(self, 'arthas_channel') or not self.arthas_channel:
+                    logger.error("SSH Channel未建立")
+                    self._disconnect()
+                    raise Exception("SSH Channel未建立")
+                
+                # 发送命令
+                logger.debug(f"发送命令: {command}")
+                self.arthas_channel.send(command.encode('utf-8') + b'\n')
+                
+                # 读取响应直到下一个提示符
+                buffer = ""
+                start_time = time.time()
+                
+                while time.time() - start_time < 10:  # 最多等待10秒
+                    if self.arthas_channel.recv_ready():
+                        try:
+                            output = self.arthas_channel.recv(1024).decode('utf-8')
+                            buffer += output
+                            if '$' in output:  # 找到命令提示符
+                                break
+                        except UnicodeDecodeError:
+                            continue
+                    time.sleep(0.1)
+                
+                # 处理响应
+                lines = buffer.split('\n')
+                # 移除命令回显和最后的提示符
+                result = '\n'.join(line for line in lines[1:-1] if line.strip())
+                logger.debug(f"命令执行结果: {result}")
+                return result
+                
+            else:
+                # 本地模式：使用telnet连接执行命令
+                if not self.telnet:
+                    logger.error("Telnet连接未建立")
+                    raise Exception("Telnet连接未建立")
+                
+                # 发送命令前清空缓冲区
                 try:
-                    # 如果是远程模式，确保SSH连接有效
-                    if self.ssh_host:
-                        self._ensure_ssh_connection()
-                        host = "localhost"  # SSH端口转发后连接本地端口
-                    else:
-                        host = "localhost"
+                    while self.telnet.read_eager():
+                        pass
+                except:
+                    pass
+
+                # 发送命令
+                logger.debug(f"发送命令: {command}")
+                self.telnet.write(command.encode('utf-8') + b'\n')
+                
+                # 读取响应直到下一个提示符
+                buffer = ""
+                start_time = time.time()
+                timeout = 10  # 最多等待10秒
+                
+                while time.time() - start_time < timeout:
+                    try:
+                        # 首先尝试读取所有可用数据
+                        chunk = self.telnet.read_eager().decode('utf-8')
+                        if chunk:
+                            buffer += chunk
+                            logger.debug(f"收到数据块: {chunk}")
                         
-                    logger.info(f"尝试直接连接到端口 {self.telnet_port}")
-                    self.telnet = telnetlib.Telnet(host, self.telnet_port, timeout=2)
-                    # 等待提示符确认连接成功
-                    response = self.telnet.read_until(b"$", timeout=2).decode('utf-8')
-                    if "arthas" in response.lower():
-                        logger.info("成功连接到现有的Arthas会话")
-                        self.current_pid = pid
-                    else:
+                        # 如果发现提示符，说明命令执行完成
+                        if '$' in chunk:
+                            break
+                            
+                        # 如果没有立即可用的数据，等待一会儿再尝试
+                        if not chunk:
+                            # 使用read_until来等待更多数据
+                            try:
+                                response = self.telnet.read_until(b"$", timeout=1).decode('utf-8')
+                                buffer += response
+                                logger.debug(f"通过read_until收到数据: {response}")
+                                if '$' in response:
+                                    break
+                            except socket.timeout:
+                                continue
+                            
+                    except EOFError:
+                        logger.error("连接已断开")
                         self._disconnect()
-                except Exception as e:
-                    logger.debug(f"直接连接失败: {e}")
-                    self._disconnect()
-                    # 如果是远程模式，确保SSH连接有效
-                    if self.ssh_host:
-                        self._ensure_ssh_connection()
-                    # 如果直接连接失败，尝试启动新的Arthas会话
-                    self._attach_to_process(pid)
-            
-            if not self.telnet:
-                raise Exception("未能连接到Arthas")
-            
-            # 发送命令
-            logger.debug(f"发送命令: {command}")
-            self.telnet.write(command.encode('utf-8') + b'\n')
-            
-            # 读取响应直到下一个提示符
-            buffer = ""
-            start_time = time.time()
-            
-            while time.time() - start_time < 10:  # 最多等待10秒
-                try:
-                    response = self.telnet.read_until(b"$", timeout=1).decode('utf-8')
-                    buffer += response
-                    if '$' in response:  # 找到命令提示符
-                        break
-                except EOFError:
-                    logger.error("连接已断开")
-                    self._disconnect()
-                    raise Exception("连接已断开")
-                except socket.timeout:
-                    continue
-            
-            # 处理响应
-            lines = buffer.split('\n')
-            # 移除命令回显和最后的提示符
-            result = '\n'.join(line for line in lines[1:-1] if line.strip())
-            logger.debug(f"命令执行结果: {result}")
-            return result
+                        raise Exception("连接已断开")
+                    except socket.timeout:
+                        continue
+                    except Exception as e:
+                        logger.error(f"读取响应时发生错误: {e}")
+                        continue
+                    
+                    time.sleep(0.1)  # 短暂休眠以避免CPU过度使用
+                
+                if time.time() - start_time >= timeout:
+                    logger.warning("命令执行超时")
+                    raise Exception("命令执行超时")
+                
+                # 处理响应
+                lines = buffer.split('\n')
+                # 移除命令回显和最后的提示符
+                result_lines = []
+                for line in lines[1:]:  # 跳过第一行（命令回显）
+                    line = line.strip()
+                    if line and not line.endswith('$'):  # 排除提示符行
+                        result_lines.append(line)
+                
+                result = '\n'.join(result_lines)
+                logger.debug(f"处理后的命令执行结果: {result}")
+                return result
             
         except Exception as e:
             logger.error(f"执行命令时发生错误: {e}")
