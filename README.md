@@ -229,4 +229,4 @@ thread_info = server.mcp.tools.get_thread_info(pid=12345)
 
 ## 许可证
 
-MIT License 
+[MIT License](./LICENSE) 
