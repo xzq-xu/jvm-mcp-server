@@ -4,10 +4,10 @@
         "command": "uv",
         "args": [
           "--directory",
-          "D:/personal/jvm-mcp-server/jvm-mcp-server",
+          "/Users/xzq.xu/Desktop/jvm-mcp-server",
           "run",
           "--env-file",
-          "D:/personal/jvm-mcp-server/jvm-mcp-server/.env",
+          "/Users/xzq.xu/Desktop/jvm-mcp-server/.env",
           "jvm-mcp-server"
         ]
       }
