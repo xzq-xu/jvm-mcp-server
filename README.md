@@ -1,4 +1,4 @@
-# JVM MCP Server Package
+# JVM MCP Server
 
 基于Arthas的JVM监控MCP服务器实现，提供了一个简单易用的Python接口来监控和分析Java进程。
 
