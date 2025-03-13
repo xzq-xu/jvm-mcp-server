@@ -466,7 +466,7 @@ class ArthasClient:
                 buffer = ""
                 start_time = time.time()
                 
-                while time.time() - start_time < 10:  # 最多等待10秒
+                while time.time() - start_time < 30:  # 最多等待10秒
                     if self.arthas_channel.recv_ready():
                         try:
                             output = self.arthas_channel.recv(1024).decode('utf-8')
@@ -580,9 +580,33 @@ class ArthasClient:
         """获取内存信息"""
         return self._execute_command(pid, "memory")
 
-    def get_stack_trace(self, pid: int, thread_name: str) -> str:
-        """获取线程堆栈"""
-        return self._execute_command(pid, f"thread {thread_name}")
+    def get_stack_trace(self, pid: int, thread_id: int = None, top_n: int = None, 
+                    find_blocking: bool = False, interval: int = None, 
+                    show_all: bool = False) -> str:
+        """获取线程堆栈
+        
+        Args:
+            pid: 进程ID
+            thread_id: 线程ID，如果指定则只显示该线程的堆栈
+            top_n: 显示最忙的前N个线程
+            find_blocking: 是否查找阻塞其他线程的线程
+            interval: CPU使用率统计的采样间隔(毫秒)，默认200ms
+            show_all: 是否显示所有线程
+        """
+        command = "thread"
+        if thread_id is not None:
+            command += f" {thread_id}"
+        elif top_n is not None:
+            command += f" {top_n}"
+        
+        if find_blocking:
+            command += " -b"
+        if interval is not None:
+            command += f" -i {interval}"
+        if show_all:
+            command += " --all"
+            
+        return self._execute_command(pid, command)
 
     def get_class_info(self, pid: int, class_pattern: str) -> str:
         """获取类信息"""
