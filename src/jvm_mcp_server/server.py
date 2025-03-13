@@ -83,9 +83,27 @@ class JvmMcpServer:
             }
 
         @self.mcp.tool()
-        def get_stack_trace(pid: int, thread_name: str) -> Dict:
-            """获取指定线程的堆栈信息"""
-            output = self.arthas.get_stack_trace(pid, thread_name)
+        def get_stack_trace(pid: int, thread_id: int = None, top_n: int = None,
+                          find_blocking: bool = False, interval: int = None,
+                          show_all: bool = False) -> Dict:
+            """获取线程堆栈信息
+            
+            Args:
+                pid: 进程ID
+                thread_id: 线程ID，如果指定则只显示该线程的堆栈
+                top_n: 显示最忙的前N个线程
+                find_blocking: 是否查找阻塞其他线程的线程
+                interval: CPU使用率统计的采样间隔(毫秒)，默认200ms
+                show_all: 是否显示所有线程
+            """
+            output = self.arthas.get_stack_trace(
+                pid=pid,
+                thread_id=thread_id,
+                top_n=top_n,
+                find_blocking=find_blocking,
+                interval=interval,
+                show_all=show_all
+            )
             return {
                 "raw_output": output,
                 "timestamp": time.time()
