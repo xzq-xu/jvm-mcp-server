@@ -28,9 +28,14 @@ A JVM monitoring MCP server implementation based on Arthas, providing a simple a
 ### 1. Install uv tool
 
 ```bash
-# Install uv using x-cmd
-eval "$(curl https://get.x-cmd.com)"
-x env use uv
+## linux shell
+curl -LsSf https://astral.sh/uv/install.sh | sh
+## or install using pip
+pip install uv
+## or install using pipx (if you have pipx installed)
+pipx install uv 
+## windows powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
 ### 2. Clone the project
@@ -45,10 +50,7 @@ cd jvm-mcp-server
 ```bash
 # Create virtual environment
 uv venv
-
-# Install project dependencies
-uv install
-# or
+# Sync project dependencies
 uv sync
 ```
 
@@ -94,126 +96,44 @@ server.run()
 
 3. Using MCP tools:
 
-```python
-# Get list of all Java processes
-processes = server.mcp.tools.list_java_processes()
-
-# Get JVM status for a specific process
-status = server.mcp.tools.get_jvm_status(pid=12345)
-
-# Get thread information
-thread_info = server.mcp.tools.get_thread_info(pid=12345)
+Using configuration file:
+```json 
+{
+    "mcpServers": {
+      "jvm-mcp-server": {
+        "command": "uv",
+        "args": [
+          "--directory",
+          "/path/to/jvm-mcp-server",
+          "run",
+          "--env-file",
+          "/path/to/jvm-mcp-server/.env",
+          "jvm-mcp-server"
+        ]
+      }
+    }
+}
+```
+Without using configuration file, it will read system environment variables, if not present it will monitor local threads:
+```json 
+{
+    "mcpServers": {
+      "jvm-mcp-server": {
+        "command": "uv",
+        "args": [
+          "--directory",
+          "/path/to/jvm-mcp-server",
+          "run",
+          "jvm-mcp-server"
+        ]
+      }
+    }
+}
 ```
 
 ## Available Tools
 
-### list_java_processes()
-Lists all running Java processes.
-- Returns: A list of dictionaries containing process information:
-  - pid: Process ID
-  - name: Process name
-  - args: Process arguments
-
-### get_version(pid: int)
-Get Arthas version information.
-- Parameters:
-  - pid: Java process ID
-- Returns: Dictionary containing version information
-
-### get_thread_info(pid: int)
-Get thread information for a specified process.
-- Parameters:
-  - pid: Java process ID
-- Returns: Dictionary containing thread information
-
-### get_jvm_info(pid: int)
-Get basic JVM information.
-- Parameters:
-  - pid: Java process ID
-- Returns: Dictionary containing JVM information
-
-### get_memory_info(pid: int)
-Get memory usage information.
-- Parameters:
-  - pid: Java process ID
-- Returns: Dictionary containing memory usage information
-
-### get_stack_trace(pid: int, thread_name: str)
-Get stack trace information for a specified thread.
-- Parameters:
-  - pid: Java process ID
-  - thread_name: Thread name
-- Returns: Dictionary containing stack trace information
-
-### get_stack_trace_by_method(pid: int, class_pattern: str, method_pattern: str)
-Get method call path.
-- Parameters:
-  - pid: Java process ID
-  - class_pattern: Class name pattern
-  - method_pattern: Method name pattern
-- Returns: Dictionary containing method call path information
-
-### decompile_class(pid: int, class_pattern: str, method_pattern: str = None)
-Decompile source code of specified class.
-- Parameters:
-  - pid: Java process ID
-  - class_pattern: Class name pattern
-  - method_pattern: Optional method name, if specified only decompiles specific method
-- Returns: Dictionary containing decompiled source code
-
-### search_method(pid: int, class_pattern: str, method_pattern: str = None)
-View method information of a class.
-- Parameters:
-  - pid: Java process ID
-  - class_pattern: Class name pattern
-  - method_pattern: Optional method name pattern
-- Returns: Dictionary containing method information
-
-### watch_method(pid: int, class_pattern: str, method_pattern: str, watch_params: bool = True, watch_return: bool = True, condition: str = None, max_times: int = 10)
-Monitor method invocations.
-- Parameters:
-  - pid: Java process ID
-  - class_pattern: Class name pattern
-  - method_pattern: Method name pattern
-  - watch_params: Whether to monitor parameters
-  - watch_return: Whether to monitor return values
-  - condition: Condition expression
-  - max_times: Maximum number of monitoring times
-- Returns: Dictionary containing method monitoring information
-
-### get_logger_info(pid: int, name: str = None)
-Get logger information.
-- Parameters:
-  - pid: Java process ID
-  - name: Logger name
-- Returns: Dictionary containing logger information
-
-### set_logger_level(pid: int, name: str, level: str)
-Set logger level.
-- Parameters:
-  - pid: Java process ID
-  - name: Logger name
-  - level: Log level (trace, debug, info, warn, error)
-- Returns: Dictionary containing operation result
-
-### get_dashboard(pid: int)
-Get system real-time data dashboard.
-- Parameters:
-  - pid: Java process ID
-- Returns: Dictionary containing real-time system data
-
-### get_class_info(pid: int, class_pattern: str)
-Get class information.
-- Parameters:
-  - pid: Java process ID
-  - class_pattern: Class name pattern
-- Returns: Dictionary containing class information
-
-### get_jvm_status(pid: Optional[int] = None)
-Get comprehensive JVM status report.
-- Parameters:
-  - pid: Optional process ID, if not specified, automatically selects the first non-arthas Java process
-- Returns: Dictionary containing complete JVM status information
+[Available Tools List](./doc/available_tools.md)
 
 ## Important Notes
 
