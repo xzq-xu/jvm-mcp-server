@@ -13,3 +13,4 @@ wheels/
 # 其他文件
 arthas-boot.jar
 math-game.jar
+.DS_Store
