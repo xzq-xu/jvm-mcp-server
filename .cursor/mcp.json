@@ -6,7 +6,8 @@
           "--directory",
           "/Users/xzq.xu/Desktop/jvm-mcp-server",
           "run",
-
+          "--env-file",
+          "/Users/xzq.xu/Desktop/jvm-mcp-server/.env",
           "jvm-mcp-server"
         ]
       }

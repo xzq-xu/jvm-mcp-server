@@ -1,0 +1,100 @@
+{
+  "pool_max_size": 5,
+  "pool_min_size": 1,
+  "pool_connection_timeout": 5,
+  "pool_idle_timeout": 300,
+  "pool_max_lifetime": 3600,
+  "pool_health_check_interval": 60,
+  "command_timeouts": {
+    "version": {
+      "timeout": 5,
+      "max_retries": 2,
+      "retry_interval": 1,
+      "description": "获取版本信息"
+    },
+    "help": {
+      "timeout": 5,
+      "max_retries": 2,
+      "retry_interval": 1,
+      "description": "获取帮助信息"
+    },
+    "thread": {
+      "timeout": 10,
+      "max_retries": 3,
+      "retry_interval": 2,
+      "description": "查看线程信息"
+    },
+    "stack": {
+      "timeout": 15,
+      "max_retries": 3,
+      "retry_interval": 2,
+      "description": "查看方法调用栈"
+    },
+    "thread_pool": {
+      "timeout": 10,
+      "max_retries": 3,
+      "retry_interval": 2,
+      "description": "查看线程池信息"
+    },
+    "sc": {
+      "timeout": 15,
+      "max_retries": 3,
+      "retry_interval": 2,
+      "description": "查看类信息"
+    },
+    "sm": {
+      "timeout": 15,
+      "max_retries": 3,
+      "retry_interval": 2,
+      "description": "查看方法信息"
+    },
+    "jad": {
+      "timeout": 20,
+      "max_retries": 3,
+      "retry_interval": 3,
+      "description": "反编译类"
+    },
+    "monitor": {
+      "timeout": 30,
+      "max_retries": 2,
+      "retry_interval": 5,
+      "description": "方法监控"
+    },
+    "watch": {
+      "timeout": 30,
+      "max_retries": 2,
+      "retry_interval": 5,
+      "description": "方法执行数据观测"
+    },
+    "trace": {
+      "timeout": 30,
+      "max_retries": 2,
+      "retry_interval": 5,
+      "description": "方法调用路径追踪"
+    },
+    "dashboard": {
+      "timeout": 10,
+      "max_retries": 3,
+      "retry_interval": 2,
+      "description": "系统面板"
+    },
+    "jvm": {
+      "timeout": 10,
+      "max_retries": 3,
+      "retry_interval": 2,
+      "description": "JVM信息"
+    },
+    "memory": {
+      "timeout": 10,
+      "max_retries": 3,
+      "retry_interval": 2,
+      "description": "内存信息"
+    },
+    "default": {
+      "timeout": 15,
+      "max_retries": 3,
+      "retry_interval": 2,
+      "description": "默认配置"
+    }
+  }
+} 

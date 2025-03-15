@@ -7,7 +7,9 @@ import telnetlib
 import socket
 import paramiko
 import logging
-from typing import Optional, Dict, Union
+import re
+from typing import Optional, Dict, Union, Any
+from .config import ArthasConfig
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -18,6 +20,25 @@ logger = logging.getLogger(__name__)
 
 class ArthasClient:
     """Arthas客户端封装类"""
+    _connection_pool = None  # 类级别的连接池
+    _config = None  # 类级别的配置对象
+    
+    @classmethod
+    def get_connection_pool(cls):
+        """获取连接池实例"""
+        if cls._connection_pool is None:
+            from .connection_pool import ArthasConnectionPool  # 延迟导入
+            cls._connection_pool = ArthasConnectionPool()
+        return cls._connection_pool
+    
+    @classmethod
+    def get_config(cls) -> ArthasConfig:
+        """获取配置实例"""
+        if cls._config is None:
+            config_file = os.path.join(os.path.dirname(__file__), '../../config/arthas.json')
+            cls._config = ArthasConfig.load(config_file)
+        return cls._config
+    
     def __init__(self, 
                  telnet_port: int = 3658,
                  ssh_host: str = None,
@@ -190,7 +211,7 @@ class ArthasClient:
                         elif "ERROR" in buffer:
                             error_msg = f"启动Arthas时发生错误: {buffer}"
                             break
-                        elif "$" in buffer:  # Arthas的命令提示符
+                        elif "as.sh" in buffer or "$" in buffer:  # Arthas的命令提示符
                             success = True
                             break
                     time.sleep(0.1)
@@ -201,6 +222,9 @@ class ArthasClient:
                     logger.error(error_msg)
                     self._disconnect()
                     raise Exception(error_msg)
+                
+                # 等待一段时间确保Arthas完全启动
+                time.sleep(2)
                 
                 logger.info("Arthas启动成功")
                 self.attached_pid = pid
@@ -375,130 +399,211 @@ class ArthasClient:
     def _execute_command(self, pid: int, command: str) -> str:
         """执行Arthas命令"""
         try:
-            # 如果还没有连接到进程，先连接
-            if self.attached_pid != pid:
-                self._attach_to_process(pid)
-            
-            if self.ssh_host:
-                # 远程模式：使用SSH Channel执行命令
-                if not hasattr(self, 'arthas_channel') or not self.arthas_channel:
-                    logger.error("SSH Channel未建立")
-                    self._disconnect()
-                    raise Exception("SSH Channel未建立")
-                
-                # 发送命令
-                logger.debug(f"发送命令: {command}")
-                self.arthas_channel.send(command.encode('utf-8') + b'\n')
-                
-                # 读取响应直到下一个提示符
-                buffer = ""
-                start_time = time.time()
-                
-                while time.time() - start_time < 30:  # 最多等待10秒
-                    if self.arthas_channel.recv_ready():
-                        try:
-                            output = self.arthas_channel.recv(1024).decode('utf-8')
-                            buffer += output
-                            if '$' in output:  # 找到命令提示符
-                                break
-                        except UnicodeDecodeError:
-                            continue
-                    time.sleep(0.1)
-                
-                # 处理响应
-                lines = buffer.split('\n')
-                # 移除命令回显和最后的提示符
-                result = '\n'.join(line for line in lines[1:-1] if line.strip())
-                logger.debug(f"命令执行结果: {result}")
+            # 从连接池获取连接
+            logger.info(f"从连接池获取连接 pid={pid}, command={command}")
+            conn = self.get_connection_pool().get_connection(pid)
+            try:
+                # 执行命令
+                result = conn.client._execute_command_internal(command)
+                if isinstance(result, dict) and "raw_output" in result:
+                    return result["raw_output"]
                 return result
+            finally:
+                # 归还连接
+                self.get_connection_pool().return_connection(conn)
                 
-            else:
-                # 本地模式：使用telnet连接执行命令
-                if not self.telnet:
-                    logger.error("Telnet连接未建立")
-                    raise Exception("Telnet连接未建立")
-                
-                # 发送命令前清空缓冲区
-                try:
-                    while self.telnet.read_eager():
-                        pass
-                except:
-                    pass
-
-                # 发送命令
-                logger.debug(f"发送命令: {command}")
-                self.telnet.write(command.encode('utf-8') + b'\n')
-                
-                # 读取响应直到下一个提示符
-                buffer = ""
-                start_time = time.time()
-                timeout = 10  # 最多等待10秒
-                
-                while time.time() - start_time < timeout:
-                    try:
-                        # 首先尝试读取所有可用数据
-                        chunk = self.telnet.read_eager().decode('utf-8')
-                        if chunk:
-                            buffer += chunk
-                            logger.debug(f"收到数据块: {chunk}")
-                        
-                        # 如果发现提示符，说明命令执行完成
-                        if '$' in chunk:
-                            break
-                            
-                        # 如果没有立即可用的数据，等待一会儿再尝试
-                        if not chunk:
-                            # 使用read_until来等待更多数据
-                            try:
-                                response = self.telnet.read_until(b"$", timeout=1).decode('utf-8')
-                                buffer += response
-                                logger.debug(f"通过read_until收到数据: {response}")
-                                if '$' in response:
-                                    break
-                            except socket.timeout:
-                                continue
-                            
-                    except EOFError:
-                        logger.error("连接已断开")
-                        self._disconnect()
-                        raise Exception("连接已断开")
-                    except socket.timeout:
-                        continue
-                    except Exception as e:
-                        logger.error(f"读取响应时发生错误: {e}")
-                        continue
-                    
-                    time.sleep(0.1)  # 短暂休眠以避免CPU过度使用
-                
-                if time.time() - start_time >= timeout:
-                    logger.warning("命令执行超时")
-                    raise Exception("命令执行超时")
-                
-                # 处理响应
-                lines = buffer.split('\n')
-                # 移除命令回显和最后的提示符
-                result_lines = []
-                for line in lines[1:]:  # 跳过第一行（命令回显）
-                    line = line.strip()
-                    if line and not line.endswith('$'):  # 排除提示符行
-                        result_lines.append(line)
-                
-                result = '\n'.join(result_lines)
-                logger.debug(f"处理后的命令执行结果: {result}")
-                return result
-            
         except Exception as e:
             logger.error(f"执行命令时发生错误: {e}")
-            self._disconnect()
             raise
+            
+    def _execute_command_internal(self, command: str) -> str:
+        """执行Arthas命令并返回结果"""
+        config = self.get_config()
+        cmd_config = config.get_command_config(command.split()[0])  # 获取命令的配置
+        
+        logger.info(f"开始执行命令: {command}")
+        max_retries = cmd_config.max_retries if cmd_config else 3
+        retry_interval = cmd_config.retry_interval if cmd_config else 1
+        timeout = cmd_config.timeout if cmd_config else 10
+        max_output_size = 50000  # 设置最大输出大小为50KB
+        
+        for retry in range(max_retries):
+            try:
+                if self.ssh_host:
+                    logger.debug("使用SSH模式执行命令")
+                    if not hasattr(self, 'arthas_channel') or not self.arthas_channel:
+                        raise Exception("Arthas会话未建立")
+                    
+                    # 清空之前的输出
+                    while self.arthas_channel.recv_ready():
+                        self.arthas_channel.recv(1024)
+                    
+                    logger.debug(f"发送命令: {command}")
+                    self.arthas_channel.send(command + "\n")
+                    
+                    # 等待并收集输出
+                    output = ""
+                    start_time = time.time()
+                    output_size = 0
+                    truncated = False
+                    
+                    while time.time() - start_time < timeout:
+                        if self.arthas_channel.recv_ready():
+                            chunk = self.arthas_channel.recv(4096).decode('utf-8')
+                            logger.debug(f"接收到数据块: {len(chunk)} 字节")
+                            
+                            chunk_size = len(chunk.encode('utf-8'))
+                            if output_size + chunk_size > max_output_size:
+                                logger.warning(f"输出超过大小限制 ({max_output_size} 字节)，进行截断")
+                                remaining = max_output_size - output_size
+                                if remaining > 0:
+                                    output += chunk[:remaining]
+                                truncated = True
+                                break
+                            
+                            output += chunk
+                            output_size += chunk_size
+                            
+                            if "$" in chunk:  # 命令提示符表示命令执行完成
+                                logger.debug("检测到命令提示符，命令执行完成")
+                                break
+                        time.sleep(0.1)
+                    
+                    if time.time() - start_time >= timeout:
+                        raise TimeoutError(f"命令执行超时: {command}")
+                    
+                    # 移除命令回显和提示符
+                    lines = output.split("\n")
+                    lines = [line for line in lines if line and not line.startswith(command) and "$" not in line]
+                    result = "\n".join(lines)
+                    
+                    if truncated:
+                        result += "\n... (输出已截断，超过50KB)"
+                    
+                    logger.info(f"命令执行成功，输出大小: {len(result)} 字节")
+                    return result
+                    
+                else:
+                    logger.debug("使用本地模式执行命令")
+                    if not hasattr(self, 'telnet') or not self.telnet:
+                        self.telnet = telnetlib.Telnet('127.0.0.1', self.telnet_port, timeout=timeout)
+                    
+                    # 清空之前的输出
+                    self.telnet.read_very_eager()
+                    
+                    logger.debug(f"发送命令: {command}")
+                    self.telnet.write(command.encode() + b"\n")
+                    
+                    # 等待并收集输出
+                    output = ""
+                    start_time = time.time()
+                    output_size = 0
+                    truncated = False
+                    
+                    while time.time() - start_time < timeout:
+                        try:
+                            chunk = self.telnet.read_eager().decode('utf-8')
+                            if chunk:
+                                logger.debug(f"接收到数据块: {len(chunk)} 字节")
+                                chunk_size = len(chunk.encode('utf-8'))
+                                if output_size + chunk_size > max_output_size:
+                                    logger.warning(f"输出超过大小限制 ({max_output_size} 字节)，进行截断")
+                                    remaining = max_output_size - output_size
+                                    if remaining > 0:
+                                        output += chunk[:remaining]
+                                    truncated = True
+                                    break
+                                
+                                output += chunk
+                                output_size += chunk_size
+                                
+                                if "$" in chunk:  # 命令提示符表示命令执行完成
+                                    logger.debug("检测到命令提示符，命令执行完成")
+                                    break
+                            else:
+                                time.sleep(0.1)
+                        except EOFError:
+                            logger.error("连接已关闭")
+                            break
+                    
+                    if time.time() - start_time >= timeout:
+                        raise TimeoutError(f"命令执行超时: {command}")
+                    
+                    # 移除命令回显和提示符
+                    lines = output.split("\n")
+                    lines = [line for line in lines if line and not line.startswith(command) and "$" not in line]
+                    result = "\n".join(lines)
+                    
+                    if truncated:
+                        result += "\n... (输出已截断，超过50KB)"
+                    
+                    logger.info(f"命令执行成功，输出大小: {len(result)} 字节")
+                    return result
+                    
+            except (TimeoutError, socket.timeout) as e:
+                logger.warning(f"命令执行超时 (重试 {retry + 1}/{max_retries}): {e}")
+                if retry < max_retries - 1:
+                    time.sleep(retry_interval)
+                    continue
+                raise
+                
+            except Exception as e:
+                logger.error(f"命令执行失败: {str(e)}")
+                if retry < max_retries - 1:
+                    time.sleep(retry_interval)
+                    continue
+                raise
+                
+        raise Exception(f"命令执行失败，已重试{max_retries}次: {command}")
 
     def __del__(self):
         """析构函数，确保断开连接"""
         self._disconnect()
 
-    def get_thread_info(self, pid: int) -> str:
-        """获取线程信息"""
-        return self._execute_command(pid, "thread")
+    def _format_thread_info(self, output: str) -> str:
+        """格式化线程信息输出
+        
+        Args:
+            output: 原始输出字符串
+            
+        Returns:
+            格式化后的输出字符串
+        """
+        try:
+            # 移除ANSI转义序列
+            output = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', output)
+            
+            # 移除空行和命令提示符
+            lines = [line.strip() for line in output.split('\n') if line.strip() and not line.strip().endswith('$')]
+            
+            # 如果输出为空，返回原始输出
+            if not lines:
+                return output
+            
+            return '\n'.join(lines)
+        except Exception as e:
+            logger.error(f"格式化线程信息失败: {str(e)}")
+            return output  # 如果格式化失败，返回原始输出
+
+    def get_thread_info(self, pid: int) -> Dict[str, Any]:
+        """获取指定进程的线程信息
+        
+        Args:
+            pid: 进程ID
+            
+        Returns:
+            包含线程信息的字典
+        """
+        try:
+            output = self._execute_command(pid, "thread -n 20")
+            formatted_output = self._format_thread_info(output)
+            return {
+                "raw_output": formatted_output,
+                "timestamp": time.time()
+            }
+        except Exception as e:
+            logger.error(f"获取线程信息失败: {str(e)}")
+            raise
 
     def get_jvm_info(self, pid: int) -> str:
         """获取JVM信息"""
@@ -508,33 +613,50 @@ class ArthasClient:
         """获取内存信息"""
         return self._execute_command(pid, "memory")
 
-    def get_stack_trace(self, pid: int, thread_id: int = None, top_n: int = None, 
-                    find_blocking: bool = False, interval: int = None, 
-                    show_all: bool = False) -> str:
-        """获取线程堆栈
+    def get_stack_trace(
+        self, pid: int, thread_id: Optional[int] = None,
+        top_n: Optional[int] = None, find_blocking: bool = False,
+        interval: Optional[int] = None, show_all: bool = False
+    ) -> Dict[str, Any]:
+        """获取线程堆栈信息
         
         Args:
             pid: 进程ID
-            thread_id: 线程ID，如果指定则只显示该线程的堆栈
+            thread_id: 线程ID
             top_n: 显示最忙的前N个线程
-            find_blocking: 是否查找阻塞其他线程的线程
-            interval: CPU使用率统计的采样间隔(毫秒)，默认200ms
+            find_blocking: 是否查找阻塞线程
+            interval: CPU使用率统计的采样间隔(毫秒)
             show_all: 是否显示所有线程
-        """
-        command = "thread"
-        if thread_id is not None:
-            command += f" {thread_id}"
-        elif top_n is not None:
-            command += f" {top_n}"
-        
-        if find_blocking:
-            command += " -b"
-        if interval is not None:
-            command += f" -i {interval}"
-        if show_all:
-            command += " --all"
             
-        return self._execute_command(pid, command)
+        Returns:
+            包含堆栈信息的字典
+        """
+        try:
+            cmd = ["thread"]
+            if thread_id is not None:
+                cmd.append(str(thread_id))
+            elif top_n is not None:
+                cmd.extend(["-n", str(top_n)])
+            elif show_all:
+                cmd.append("--all")
+            else:
+                cmd.extend(["-n", "20"])  # 默认显示前20个线程
+            
+            if find_blocking:
+                cmd.append("-b")
+            
+            if interval is not None:
+                cmd.extend(["-i", str(interval)])
+            
+            output = self._execute_command(pid, " ".join(cmd))
+            formatted_output = self._format_thread_info(output)
+            return {
+                "raw_output": formatted_output,
+                "timestamp": time.time()
+            }
+        except Exception as e:
+            logger.error(f"获取堆栈信息失败: {str(e)}")
+            raise
 
     def get_class_info(self, pid: int, class_pattern: str, 
                       show_detail: bool = False, 
