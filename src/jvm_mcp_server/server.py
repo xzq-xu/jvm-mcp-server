@@ -35,7 +35,6 @@ class JvmMcpServer:
             ssh_password=ssh_password
         )
         self._setup_tools()
-        self._setup_prompts()
 
     def _setup_tools(self):
         """设置MCP工具"""
@@ -110,9 +109,38 @@ class JvmMcpServer:
             }
 
         @self.mcp.tool()
-        def get_class_info(pid: int, class_pattern: str) -> Dict:
-            """获取类信息"""
-            output = self.arthas.get_class_info(pid, class_pattern)
+        def get_class_info(pid: int, class_pattern: str,
+                          show_detail: bool = False,
+                          show_field: bool = False,
+                          use_regex: bool = False,
+                          depth: int = None,
+                          classloader_hash: str = None,
+                          classloader_class: str = None,
+                          max_matches: int = None) -> Dict:
+            """获取类信息
+            
+            Args:
+                pid: 进程ID
+                class_pattern: 类名表达式匹配
+                show_detail: 是否显示详细信息，默认false
+                show_field: 是否显示成员变量信息(需要show_detail=True)，默认false
+                use_regex: 是否使用正则表达式匹配，默认false
+                depth: 指定输出静态变量时属性的遍历深度，默认1
+                classloader_hash: 指定class的ClassLoader的hashcode，默认None
+                classloader_class: 指定执行表达式的ClassLoader的class name，默认None
+                max_matches: 具有详细信息的匹配类的最大数量
+            """
+            output = self.arthas.get_class_info(
+                pid=pid,
+                class_pattern=class_pattern,
+                show_detail=show_detail,
+                show_field=show_field,
+                use_regex=use_regex,
+                depth=depth,
+                classloader_hash=classloader_hash,
+                classloader_class=classloader_class,
+                max_matches=max_matches
+            )
             return {
                 "raw_output": output,
                 "timestamp": time.time()
@@ -160,9 +188,31 @@ class JvmMcpServer:
             }
 
         @self.mcp.tool()
-        def get_stack_trace_by_method(pid: int, class_pattern: str, method_pattern: str) -> Dict:
-            """获取方法的调用路径"""
-            output = self.arthas.get_stack_trace_by_method(pid, class_pattern, method_pattern)
+        def get_stack_trace_by_method(pid: int, class_pattern: str, method_pattern: str,
+                                    condition: str = None,
+                                    use_regex: bool = False,
+                                    max_matches: int = None,
+                                    max_times: int = None) -> Dict:
+            """获取方法的调用路径
+            
+            Args:
+                pid: 进程ID
+                class_pattern: 类名表达式匹配
+                method_pattern: 方法名表达式匹配
+                condition: 条件表达式，例如：'params[0]<0' 或 '#cost>10'
+                use_regex: 是否开启正则表达式匹配，默认为通配符匹配
+                max_matches: 指定Class最大匹配数量，默认值为50
+                max_times: 执行次数限制
+            """
+            output = self.arthas.get_stack_trace_by_method(
+                pid=pid,
+                class_pattern=class_pattern,
+                method_pattern=method_pattern,
+                condition=condition,
+                use_regex=use_regex,
+                max_matches=max_matches,
+                max_times=max_times
+            )
             return {
                 "raw_output": output,
                 "timestamp": time.time()
@@ -178,9 +228,34 @@ class JvmMcpServer:
             }
 
         @self.mcp.tool()
-        def search_method(pid: int, class_pattern: str, method_pattern: str = None) -> Dict:
-            """查看类的方法信息"""
-            output = self.arthas.search_method(pid, class_pattern, method_pattern)
+        def search_method(pid: int, class_pattern: str, method_pattern: str = None,
+                         show_detail: bool = False,
+                         use_regex: bool = False,
+                         classloader_hash: str = None,
+                         classloader_class: str = None,
+                         max_matches: int = None) -> Dict:
+            """查看类的方法信息
+            
+            Args:
+                pid: 进程ID
+                class_pattern: 类名表达式匹配
+                method_pattern: 可选的方法名表达式
+                show_detail: 是否展示每个方法的详细信息
+                use_regex: 是否开启正则表达式匹配，默认为通配符匹配
+                classloader_hash: 指定class的ClassLoader的hashcode
+                classloader_class: 指定执行表达式的ClassLoader的class name
+                max_matches: 具有详细信息的匹配类的最大数量（默认为100）
+            """
+            output = self.arthas.search_method(
+                pid=pid,
+                class_pattern=class_pattern,
+                method_pattern=method_pattern,
+                show_detail=show_detail,
+                use_regex=use_regex,
+                classloader_hash=classloader_hash,
+                classloader_class=classloader_class,
+                max_matches=max_matches
+            )
             return {
                 "raw_output": output,
                 "timestamp": time.time()
@@ -225,23 +300,6 @@ class JvmMcpServer:
                 "raw_output": output,
                 "timestamp": time.time()
             }
-
-    def _setup_prompts(self):
-        """设置MCP提示"""
-        @self.mcp.prompt()
-        def jvm_analysis_prompt(status: Dict) -> str:
-            """创建JVM分析提示"""
-            
-            return f"""你是一位经验丰富的Java性能调优专家，
-            请考虑以下方面：
-            1. JVM整体健康状况
-            2. 内存使用情况和潜在的内存问题
-            3. 线程状态和可能的死锁
-            4. 性能优化建议
-            5. 需要关注的警告信息
-
-            请提供详细的分析报告和具体的优化建议。
-            """
 
     def run(self):
         """运行服务器"""
