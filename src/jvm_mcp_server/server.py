@@ -207,9 +207,34 @@ class JvmMcpServer:
             }
 
         @self.mcp.tool()
-        def search_method(pid: int, class_pattern: str, method_pattern: str = None) -> Dict:
-            """查看类的方法信息"""
-            output = self.arthas.search_method(pid, class_pattern, method_pattern)
+        def search_method(pid: int, class_pattern: str, method_pattern: str = None,
+                         show_detail: bool = False,
+                         use_regex: bool = False,
+                         classloader_hash: str = None,
+                         classloader_class: str = None,
+                         max_matches: int = None) -> Dict:
+            """查看类的方法信息
+            
+            Args:
+                pid: 进程ID
+                class_pattern: 类名表达式匹配
+                method_pattern: 可选的方法名表达式
+                show_detail: 是否展示每个方法的详细信息
+                use_regex: 是否开启正则表达式匹配，默认为通配符匹配
+                classloader_hash: 指定class的ClassLoader的hashcode
+                classloader_class: 指定执行表达式的ClassLoader的class name
+                max_matches: 具有详细信息的匹配类的最大数量（默认为100）
+            """
+            output = self.arthas.search_method(
+                pid=pid,
+                class_pattern=class_pattern,
+                method_pattern=method_pattern,
+                show_detail=show_detail,
+                use_regex=use_regex,
+                classloader_hash=classloader_hash,
+                classloader_class=classloader_class,
+                max_matches=max_matches
+            )
             return {
                 "raw_output": output,
                 "timestamp": time.time()

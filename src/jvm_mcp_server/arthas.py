@@ -690,17 +690,43 @@ class ArthasClient:
             command += f" {method_pattern}"
         return self._execute_command(pid, command)
 
-    def search_method(self, pid: int, class_pattern: str, method_pattern: str = None) -> str:
+    def search_method(self, pid: int, class_pattern: str, method_pattern: str = None,
+                      show_detail: bool = False,
+                      use_regex: bool = False,
+                      classloader_hash: str = None,
+                      classloader_class: str = None,
+                      max_matches: int = None) -> str:
         """查看类的方法信息
         
         Args:
             pid: 进程ID
-            class_pattern: 类名表达式
+            class_pattern: 类名表达式匹配
             method_pattern: 可选的方法名表达式
+            show_detail: 是否展示每个方法的详细信息
+            use_regex: 是否开启正则表达式匹配，默认为通配符匹配
+            classloader_hash: 指定class的ClassLoader的hashcode
+            classloader_class: 指定执行表达式的ClassLoader的class name
+            max_matches: 具有详细信息的匹配类的最大数量（默认为100）
         """
-        command = f"sm {class_pattern}"
+        command = f"sm"
+        
+        # 添加参数
+        if show_detail:
+            command += " -d"
+        if use_regex:
+            command += " -E"
+        if classloader_hash:
+            command += f" -c {classloader_hash}"
+        if classloader_class:
+            command += f" --classLoaderClass {classloader_class}"
+        if max_matches is not None:
+            command += f" -n {max_matches}"
+            
+        # 添加类名和方法名匹配模式
+        command += f" {class_pattern}"
         if method_pattern:
             command += f" {method_pattern}"
+            
         return self._execute_command(pid, command)
 
     def watch_method(self, pid: int, class_pattern: str, method_pattern: str, 
