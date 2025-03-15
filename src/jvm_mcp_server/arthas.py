@@ -13,80 +13,8 @@ from typing import Optional, Dict, Union
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class LocalProcessChannel:
-    """模拟SSH Channel的本地进程封装"""
-    def __init__(self, command: list):
-        """
-        初始化本地进程通道
-        Args:
-            command: 要执行的命令列表
-        """
-        import platform
-        # Windows下需要特殊处理
-        if platform.system() == 'Windows':
-            import subprocess
-            self.process = subprocess.Popen(
-                command,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                shell=True,
-                text=True,
-                bufsize=1,
-                universal_newlines=True
-            )
-        else:
-            # Linux/Mac下使用伪终端
-            import pty
-            import os
-            self.master, slave = pty.openpty()
-            self.process = subprocess.Popen(
-                command,
-                stdin=slave,
-                stdout=slave,
-                stderr=slave,
-                text=True,
-                bufsize=1,
-                universal_newlines=True
-            )
-            os.close(slave)
 
-    def send(self, data: str):
-        """发送数据到进程"""
-        if isinstance(data, str):
-            data = data.encode('utf-8')
-        if platform.system() == 'Windows':
-            self.process.stdin.write(data.decode('utf-8'))
-            self.process.stdin.flush()
-        else:
-            os.write(self.master, data)
 
-    def recv(self, size: int = 1024) -> bytes:
-        """从进程接收数据"""
-        if platform.system() == 'Windows':
-            return self.process.stdout.read1(size).encode('utf-8')
-        else:
-            return os.read(self.master, size)
-
-    def recv_ready(self) -> bool:
-        """检查是否有数据可读"""
-        import select
-        if platform.system() == 'Windows':
-            return True  # Windows下简单处理
-        else:
-            r, _, _ = select.select([self.master], [], [], 0)
-            return bool(r)
-
-    def close(self):
-        """关闭进程"""
-        if platform.system() != 'Windows':
-            os.close(self.master)
-        self.process.terminate()
-        self.process.wait()
-
-    def __del__(self):
-        """析构时确保进程被关闭"""
-        self.close()
 
 class ArthasClient:
     """Arthas客户端封装类"""
@@ -667,15 +595,35 @@ class ArthasClient:
         """获取Arthas版本信息"""
         return self._execute_command(pid, "version")
 
-    def get_stack_trace_by_method(self, pid: int, class_pattern: str, method_pattern: str) -> str:
+    def get_stack_trace_by_method(self, pid: int, class_pattern: str, method_pattern: str,
+                               condition: str = None,
+                               use_regex: bool = False,
+                               max_matches: int = None,
+                               max_times: int = None) -> str:
         """获取方法的调用路径
         
         Args:
             pid: 进程ID
-            class_pattern: 类名表达式
-            method_pattern: 方法名表达式
+            class_pattern: 类名表达式匹配
+            method_pattern: 方法名表达式匹配
+            condition: 条件表达式，例如：'params[0]<0' 或 '#cost>10'
+            use_regex: 是否开启正则表达式匹配，默认为通配符匹配
+            max_matches: 指定Class最大匹配数量，默认值为50
+            max_times: 执行次数限制
         """
-        return self._execute_command(pid, f"stack {class_pattern} {method_pattern}")
+        command = f"stack {class_pattern} {method_pattern}"
+        
+        # 添加参数
+        if condition:
+            command += f" '{condition}'"
+        if use_regex:
+            command += " -E"
+        if max_matches is not None:
+            command += f" -m {max_matches}"
+        if max_times is not None:
+            command += f" -n {max_times}"
+            
+        return self._execute_command(pid, command)
 
     def decompile_class(self, pid: int, class_pattern: str, method_pattern: str = None) -> str:
         """反编译指定类的源码

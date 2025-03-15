@@ -35,7 +35,6 @@ class JvmMcpServer:
             ssh_password=ssh_password
         )
         self._setup_tools()
-        self._setup_prompts()
 
     def _setup_tools(self):
         """设置MCP工具"""
@@ -189,9 +188,31 @@ class JvmMcpServer:
             }
 
         @self.mcp.tool()
-        def get_stack_trace_by_method(pid: int, class_pattern: str, method_pattern: str) -> Dict:
-            """获取方法的调用路径"""
-            output = self.arthas.get_stack_trace_by_method(pid, class_pattern, method_pattern)
+        def get_stack_trace_by_method(pid: int, class_pattern: str, method_pattern: str,
+                                    condition: str = None,
+                                    use_regex: bool = False,
+                                    max_matches: int = None,
+                                    max_times: int = None) -> Dict:
+            """获取方法的调用路径
+            
+            Args:
+                pid: 进程ID
+                class_pattern: 类名表达式匹配
+                method_pattern: 方法名表达式匹配
+                condition: 条件表达式，例如：'params[0]<0' 或 '#cost>10'
+                use_regex: 是否开启正则表达式匹配，默认为通配符匹配
+                max_matches: 指定Class最大匹配数量，默认值为50
+                max_times: 执行次数限制
+            """
+            output = self.arthas.get_stack_trace_by_method(
+                pid=pid,
+                class_pattern=class_pattern,
+                method_pattern=method_pattern,
+                condition=condition,
+                use_regex=use_regex,
+                max_matches=max_matches,
+                max_times=max_times
+            )
             return {
                 "raw_output": output,
                 "timestamp": time.time()
@@ -279,23 +300,6 @@ class JvmMcpServer:
                 "raw_output": output,
                 "timestamp": time.time()
             }
-
-    def _setup_prompts(self):
-        """设置MCP提示"""
-        @self.mcp.prompt()
-        def jvm_analysis_prompt(status: Dict) -> str:
-            """创建JVM分析提示"""
-            
-            return f"""你是一位经验丰富的Java性能调优专家，
-            请考虑以下方面：
-            1. JVM整体健康状况
-            2. 内存使用情况和潜在的内存问题
-            3. 线程状态和可能的死锁
-            4. 性能优化建议
-            5. 需要关注的警告信息
-
-            请提供详细的分析报告和具体的优化建议。
-            """
 
     def run(self):
         """运行服务器"""
