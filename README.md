@@ -1,154 +1,108 @@
-# JVM MCP Server
+# JVM-MCP-Server Native分支
 
-[English](README.md) | [中文](README_zh.md)
+## 项目简介
+JVM-MCP-Server的Native分支旨在提供一个不依赖Arthas的JVM监控解决方案。通过使用JDK原生工具（如jps、jstack、jmap等）和系统命令，实现与Arthas类似的功能，为Java应用提供轻量级的监控和诊断能力。
 
-A JVM monitoring MCP server implementation based on Arthas, providing a simple and easy-to-use Python interface for monitoring and analyzing Java processes.
+## 实现原理
+不同于主分支使用Arthas作为核心实现，Native分支直接调用以下工具和命令：
 
-## Features
+### JDK工具
+- jps：用于列出Java进程
+- jstack：获取线程堆栈信息
+- jmap：获取内存相关信息
+- jinfo：获取JVM配置信息
+- jstat：获取JVM统计信息
+- javap：用于类信息查看和反编译
 
-- Automatic download and management of Arthas tools
-- Support for local and remote Java process monitoring
-- Java process list querying
-- Real-time JVM thread information
-- JVM memory usage monitoring
-- Thread stack trace information
-- Class loading information querying
-- Support for class and method decompilation
-- Method call monitoring
-- Dynamic log level adjustment
-- AI-driven JVM performance analysis
+### 系统命令
+- ps：进程管理
+- top：系统资源监控
+- grep/awk：文本处理
+- kill：进程控制
 
-## System Requirements
+## 主要功能
 
-- Python 3.10+
-- Java Runtime Environment (JRE) 8+
-- Network connection (for downloading Arthas)
-- SSH access to target server (if using remote mode)
+### 基础监控
+1. Java进程列表查看
+2. JVM基础信息获取
+3. 内存使用情况监控
+4. 线程信息查看
+5. 堆栈信息获取
+6. 类信息查看
 
-## Installation and Environment Setup
+### 高级特性
+1. 方法调用路径分析
+2. 类反编译
+3. 方法搜索
+4. 方法监控
+5. 日志级别管理
+6. 系统资源面板
 
-### 1. Install uv tool
+## 优势特点
+1. 零依赖：不需要额外的第三方工具
+2. 轻量级：最小化资源占用
+3. 高兼容性：适用于所有Java版本
+4. 低侵入性：不需要修改目标应用
+5. 安全性高：只使用JDK认证的工具
 
+## 使用方法
+
+### 环境要求
+- JDK 8及以上版本
+- Python 3.6及以上版本
+- Linux/Unix/Windows系统
+
+### 安装步骤
+1. 克隆项目并切换到native分支：
 ```bash
-## linux shell
-curl -LsSf https://astral.sh/uv/install.sh | sh
-## or install using pip
-pip install uv
-## or install using pipx (if you have pipx installed)
-pipx install uv 
-## windows powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-### 2. Clone the project
-
-```bash
-git clone https://github.com/xzq-xu/jvm-mcp-server.git
+git clone https://github.com/your-repo/jvm-mcp-server.git
 cd jvm-mcp-server
+git checkout native
 ```
 
-### 3. Initialize project environment using uv
-
+2. 安装依赖：
 ```bash
-# Create virtual environment
-uv venv
-# Sync project dependencies
-uv sync
+pip install -r requirements.txt
 ```
 
-### 4. Configure environment variables (Optional, for remote connections)
-
-Create a `.env` file and add the following configurations:
-
+3. 运行服务：
 ```bash
-# Linux/Mac
-ARTHAS_SSH_HOST=user@remote-host
-ARTHAS_SSH_PORT=22  # Optional, default is 22
-ARTHAS_SSH_PASSWORD=your-password  # If using password authentication
-
-# Windows PowerShell
-$env:ARTHAS_SSH_HOST="user@remote-host"
-$env:ARTHAS_SSH_PORT="22"  # Optional, default is 22
-$env:ARTHAS_SSH_PASSWORD="your-password"  # If using password authentication
+python src/main.py
 ```
 
-## Quick Start
+### 配置说明
+配置文件位于`config/`目录下，主要包括：
+- config.json：基础配置
+- logging.json：日志配置
+- security.json：安全配置
 
-1. Start the server using uv:
+## 开发进度
+请查看[Native_TODO.md](Native_TODO.md)文件了解当前开发进度。
 
-```bash
-# Start in local mode
-uv run jvm-mcp-server
+## 注意事项
+1. 需要确保运行用户具有足够的权限执行JDK工具
+2. 在生产环境使用时需要注意性能开销
+3. 某些功能在不同操作系统上可能有差异
+4. 建议在使用前先在测试环境验证
 
-# Start with environment file (if remote connection is configured)
-uv run --env-file .env jvm-mcp-server
+## 性能考虑
+1. 命令执行采用异步方式
+2. 实现了结果缓存机制
+3. 支持批量数据处理
+4. 可配置采样频率
+5. 内置资源使用限制
 
-# Start in a specific directory (if needed)
-uv --directory /path/to/project run --env-file .env jvm-mcp-server
-```
+## 贡献指南
+1. Fork本仓库
+2. 创建功能分支
+3. 提交变更
+4. 发起Pull Request
 
-2. Use in Python code:
+## 问题反馈
+如果您在使用过程中遇到任何问题，请：
+1. 查看[常见问题](docs/FAQ.md)
+2. 提交[Issue](https://github.com/your-repo/jvm-mcp-server/issues)
+3. 通过[邮件列表](mailto:your-email@example.com)联系我们
 
-```python
-from jvm_mcp_server import JvmMcpServer
-
-server = JvmMcpServer()
-server.run()
-```
-
-3. Using MCP tools:
-
-Using configuration file:
-```json 
-{
-    "mcpServers": {
-      "jvm-mcp-server": {
-        "command": "uv",
-        "args": [
-          "--directory",
-          "/path/to/jvm-mcp-server",
-          "run",
-          "--env-file",
-          "/path/to/jvm-mcp-server/.env",
-          "jvm-mcp-server"
-        ]
-      }
-    }
-}
-```
-Without using configuration file, it will read system environment variables, if not present it will monitor local threads:
-```json 
-{
-    "mcpServers": {
-      "jvm-mcp-server": {
-        "command": "uv",
-        "args": [
-          "--directory",
-          "/path/to/jvm-mcp-server",
-          "run",
-          "jvm-mcp-server"
-        ]
-      }
-    }
-}
-```
-
-## Available Tools
-
-[Available Tools List](./doc/available_tools.md)
-
-## Important Notes
-
-1. Ensure Java is installed in the runtime environment
-2. Arthas tool will be automatically downloaded on first run (arthas will be downloaded to home directory, can be downloaded in advance and named as arthas-boot.jar)
-3. Requires access permissions to target Java process
-4. Remote mode requires SSH access and appropriate user permissions
-5. Recommended for use in development environment, production use should be carefully evaluated
-
-## Feedback
-
-If you encounter any issues, please submit an Issue or Pull Request.
-
-## License
-
-[MIT License](./LICENSE) 
+## 许可证
+本项目采用MIT许可证，详见[LICENSE](LICENSE)文件。 
