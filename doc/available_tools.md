@@ -95,12 +95,21 @@
   - pid: Java进程ID
 - 返回值：包含系统实时数据的字典
 
-### get_class_info(pid: int, class_pattern: str)
-获取类信息。
+
+### get_class_info
+获取类信息，包括成员变量
 - 参数：
-  - pid: Java进程ID
-  - class_pattern: 类名匹配模式
-- 返回值：包含类信息的字典
+  - `pid`: 进程ID
+  - `class_pattern`: 类名表达式匹配
+  - `show_detail`: 是否显示详细信息
+  - `show_field`: 是否显示成员变量信息(需要show_detail=True)
+  - `use_regex`: 是否使用正则表达式匹配
+  - `depth`: 指定输出静态变量时属性的遍历深度
+  - `classloader_hash`: 指定class的ClassLoader的hashcode
+  - `classloader_class`: 指定执行表达式的ClassLoader的class name
+  - `max_matches`: 具有详细信息的匹配类的最大数量
+- 返回值：类信息
+
 
 ### get_jvm_status(pid: Optional[int] = None)
 获取JVM整体状态报告。

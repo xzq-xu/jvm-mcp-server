@@ -608,9 +608,49 @@ class ArthasClient:
             
         return self._execute_command(pid, command)
 
-    def get_class_info(self, pid: int, class_pattern: str) -> str:
-        """获取类信息"""
-        return self._execute_command(pid, f"sc {class_pattern}")
+    def get_class_info(self, pid: int, class_pattern: str, 
+                      show_detail: bool = False, 
+                      show_field: bool = False,
+                      use_regex: bool = False,
+                      depth: int = None,
+                      classloader_hash: str = None,
+                      classloader_class: str = None,
+                      max_matches: int = None) -> str:
+        """获取类信息
+        
+        Args:
+            pid: 进程ID
+            class_pattern: 类名表达式匹配
+            show_detail: 是否显示详细信息
+            show_field: 是否显示成员变量信息(需要show_detail=True)
+            use_regex: 是否使用正则表达式匹配
+            depth: 指定输出静态变量时属性的遍历深度
+            classloader_hash: 指定class的ClassLoader的hashcode
+            classloader_class: 指定执行表达式的ClassLoader的class name
+            max_matches: 具有详细信息的匹配类的最大数量
+        """
+        command = f"sc"
+        
+        # 添加参数
+        if show_detail:
+            command += " -d"
+        if show_field and show_detail:  # show_field需要配合-d使用
+            command += " -f"
+        if use_regex:
+            command += " -E"
+        if depth is not None:
+            command += f" -x {depth}"
+        if classloader_hash:
+            command += f" -c {classloader_hash}"
+        if classloader_class:
+            command += f" --classLoaderClass {classloader_class}"
+        if max_matches is not None:
+            command += f" -n {max_matches}"
+            
+        # 添加类名匹配模式
+        command += f" {class_pattern}"
+        
+        return self._execute_command(pid, command)
 
     def list_java_processes(self) -> str:
         """列出Java进程"""

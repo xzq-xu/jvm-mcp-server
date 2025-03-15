@@ -110,9 +110,38 @@ class JvmMcpServer:
             }
 
         @self.mcp.tool()
-        def get_class_info(pid: int, class_pattern: str) -> Dict:
-            """获取类信息"""
-            output = self.arthas.get_class_info(pid, class_pattern)
+        def get_class_info(pid: int, class_pattern: str,
+                          show_detail: bool = False,
+                          show_field: bool = False,
+                          use_regex: bool = False,
+                          depth: int = None,
+                          classloader_hash: str = None,
+                          classloader_class: str = None,
+                          max_matches: int = None) -> Dict:
+            """获取类信息
+            
+            Args:
+                pid: 进程ID
+                class_pattern: 类名表达式匹配
+                show_detail: 是否显示详细信息，默认false
+                show_field: 是否显示成员变量信息(需要show_detail=True)，默认false
+                use_regex: 是否使用正则表达式匹配，默认false
+                depth: 指定输出静态变量时属性的遍历深度，默认1
+                classloader_hash: 指定class的ClassLoader的hashcode，默认None
+                classloader_class: 指定执行表达式的ClassLoader的class name，默认None
+                max_matches: 具有详细信息的匹配类的最大数量
+            """
+            output = self.arthas.get_class_info(
+                pid=pid,
+                class_pattern=class_pattern,
+                show_detail=show_detail,
+                show_field=show_field,
+                use_regex=use_regex,
+                depth=depth,
+                classloader_hash=classloader_hash,
+                classloader_class=classloader_class,
+                max_matches=max_matches
+            )
             return {
                 "raw_output": output,
                 "timestamp": time.time()
