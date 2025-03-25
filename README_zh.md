@@ -173,7 +173,7 @@ result = server.search_method(
 ## 注意事项
 
 1. 确保运行环境中已安装Java
-2. 首次运行时会自动下载Arthas工具（arthas将被下载的 /home/ 目录下，可以提前下载（命名为arthas-boot.jar））
+2. 首次运行时会自动下载Arthas工具（arthas将被下载到 ~ 目录下，可以提前下载（命名为arthas-boot.jar））
 3. 需要目标Java进程的访问权限
 4. 远程模式需要SSH访问权限和适当的用户权限
 5. 建议在开发环境中使用，生产环境使用需谨慎评估
