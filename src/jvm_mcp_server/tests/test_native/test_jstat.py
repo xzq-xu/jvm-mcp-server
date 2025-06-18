@@ -63,7 +63,7 @@ class TestJstatCommand:
         
         result = self.command.execute(pid="1234", option="gc")
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jstat -gc 1234")
+        self.executor.run.assert_called_once_with("jstat -gc 1234", timeout=30)
         self.formatter.format.assert_called_once()
 
     def test_execute_success_class(self):
@@ -93,7 +93,7 @@ class TestJstatCommand:
         
         result = self.command.execute(pid="1234", option="class")
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jstat -class 1234")
+        self.executor.run.assert_called_once_with("jstat -class 1234", timeout=30)
         self.formatter.format.assert_called_once()
 
     def test_execute_failure(self):
@@ -119,7 +119,7 @@ class TestJstatCommand:
         
         result = self.command.execute(pid="1234")
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jstat 1234")
+        self.executor.run.assert_called_once_with("jstat 1234", timeout=30)
         self.formatter.format.assert_called_once()
 
     def test_execute_with_interval_and_count(self):
@@ -151,7 +151,7 @@ class TestJstatCommand:
         
         result = self.command.execute(pid="1234", option="gc", interval=1000, count=3)
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jstat -gc 1234 1000 3")
+        self.executor.run.assert_called_once_with("jstat -gc 1234 1000 3", timeout=30)
         self.formatter.format.assert_called_once()
 
 if __name__ == '__main__':

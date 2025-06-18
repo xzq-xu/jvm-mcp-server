@@ -1,16 +1,13 @@
 {
     "mcpServers": {
-      "jvm-mcp-server2": {
-        "type": "sse",
-        "url": "http://127.0.0.1:8000/sse" 
-      },
-      "native-jvm-monitor": {
-        "command": "uvx",
-        "args": [
-          "--from",
-          "/Users/xzq/Desktop/Personal/code/jvm-mcp-server",
-          "jvm-mcp-server"
-        ]
-      }
+        "jvm-mcp-server4": {
+            "command": "uv",
+            "args": [
+            "--directory",
+            "/Users/xzq/Desktop/Personal/code/jvm-mcp-server",
+            "run",
+            "jvm-mcp-server"
+            ]
+        }
     }
 }

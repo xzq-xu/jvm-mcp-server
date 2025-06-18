@@ -53,7 +53,7 @@ class TestJpsCommand:
         
         result = self.command.execute()
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jps -l -v")
+        self.executor.run.assert_called_once_with("jps -l -v", timeout=None)
         self.formatter.format.assert_called_once()
 
     def test_execute_failure(self):
@@ -80,7 +80,7 @@ class TestJpsCommand:
         
         result = self.command.execute()
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jps -l -v")
+        self.executor.run.assert_called_once_with("jps -l -v", timeout=None)
         self.formatter.format.assert_called_once()
 
     def test_empty_output(self):
@@ -106,7 +106,7 @@ class TestJpsCommand:
         
         result = self.command.execute()
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jps -l -v")
+        self.executor.run.assert_called_once_with("jps -l -v", timeout=None)
         self.formatter.format.assert_called_once()
 
     def test_malformed_output(self):
@@ -140,7 +140,7 @@ class TestJpsCommand:
         
         result = self.command.execute()
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jps -l -v")
+        self.executor.run.assert_called_once_with("jps -l -v", timeout=None)
         self.formatter.format.assert_called_once()
 
 if __name__ == '__main__':

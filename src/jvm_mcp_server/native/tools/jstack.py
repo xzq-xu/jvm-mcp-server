@@ -56,12 +56,46 @@ class JstackFormatter(OutputFormatter):
                     threads.append(current_thread)
 
                 # 解析线程名和状态
-                # 格式: "thread-name" #id [state]
+                # 格式: "thread-name" #id prio=5 os_prio=31 cpu=64.58ms elapsed=1.32s tid=0x00007f9a8d00e000 nid=0x2c03 waiting on condition
                 name_end = line.rfind('"')
                 if name_end > 0:
                     thread_name = line[1:name_end]
+                    rest_line = line[name_end+1:].strip()
+                    
+                    # 解析线程ID和nid
+                    thread_id = None
+                    nid = None
+                    priority = None
+                    
+                    # 提取 #id
+                    if rest_line.startswith('#') or ' #' in rest_line:
+                        if rest_line.startswith('#'):
+                            id_part = rest_line[1:].split()[0]  # 去掉开头的#
+                        else:
+                            id_part = rest_line.split(' #')[1].split()[0]
+                        try:
+                            thread_id = int(id_part)
+                        except ValueError:
+                            pass
+                    
+                    # 提取 nid (native thread id)
+                    if ' nid=' in rest_line:
+                        nid_part = rest_line.split(' nid=')[1].split()[0]
+                        nid = nid_part  # 保持原始格式（通常是十六进制）
+                    
+                    # 提取优先级
+                    if ' prio=' in rest_line:
+                        prio_part = rest_line.split(' prio=')[1].split()[0]
+                        try:
+                            priority = int(prio_part)
+                        except ValueError:
+                            pass
+                    
                     current_thread = {
                         "name": thread_name,
+                        "thread_id": thread_id,
+                        "nid": nid,
+                        "priority": priority,
                         "state": "unknown",  # 状态将在下一行更新
                         "stack_trace": [],
                         "locks": []

@@ -90,3 +90,9 @@ exclude = ".git,.hg,.svn,CVS,.tox,.venv,venv,__pycache__,*.pyc,*.egg-info,*.egg,
 # 代码风格
 hang_closing = true      # 右括号独占一行
 experimental = true      # 启用实验性功能
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.0",
+    "pytest-cov>=6.2.1",
+]

@@ -60,7 +60,7 @@ class TestJcmdCommand:
         
         result = self.command.execute(pid="1234", subcommand="Thread.print")
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jcmd 1234 Thread.print")
+        self.executor.run.assert_called_once_with("jcmd 1234 Thread.print", timeout=30)
         self.formatter.format.assert_called_once()
 
     def test_execute_gc_histogram_success(self):
@@ -96,7 +96,7 @@ class TestJcmdCommand:
         
         result = self.command.execute(pid="1234", subcommand="GC.class_histogram")
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jcmd 1234 GC.class_histogram")
+        self.executor.run.assert_called_once_with("jcmd 1234 GC.class_histogram", timeout=30)
         self.formatter.format.assert_called_once()
 
     def test_execute_help_success(self):
@@ -144,7 +144,7 @@ class TestJcmdCommand:
         
         result = self.command.execute(pid="1234", subcommand="help")
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jcmd 1234 help")
+        self.executor.run.assert_called_once_with("jcmd 1234 help", timeout=30)
         self.formatter.format.assert_called_once()
 
     def test_execute_failure_process_not_found(self):
@@ -170,7 +170,7 @@ class TestJcmdCommand:
         
         result = self.command.execute(pid="1234")
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jcmd 1234")
+        self.executor.run.assert_called_once_with("jcmd 1234", timeout=30)
         self.formatter.format.assert_called_once()
 
     def test_execute_failure_invalid_subcommand(self):
@@ -196,7 +196,7 @@ class TestJcmdCommand:
         
         result = self.command.execute(pid="1234", subcommand="invalid.command")
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jcmd 1234 invalid.command")
+        self.executor.run.assert_called_once_with("jcmd 1234 invalid.command", timeout=30)
         self.formatter.format.assert_called_once()
 
 if __name__ == '__main__':

@@ -83,7 +83,7 @@ class TestJstackCommand:
         
         result = self.command.execute(pid="1234")
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jstack -l 1234")
+        self.executor.run.assert_called_once_with("jstack -l 1234", timeout=30)
         self.formatter.format.assert_called_once()
 
     def test_execute_failure(self):
@@ -109,7 +109,7 @@ class TestJstackCommand:
         
         result = self.command.execute(pid="1234")
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jstack -l 1234")
+        self.executor.run.assert_called_once_with("jstack -l 1234", timeout=30)
         self.formatter.format.assert_called_once()
 
     def test_empty_output(self):
@@ -136,7 +136,7 @@ class TestJstackCommand:
         
         result = self.command.execute(pid="1234")
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jstack -l 1234")
+        self.executor.run.assert_called_once_with("jstack -l 1234", timeout=30)
         self.formatter.format.assert_called_once()
 
     def test_malformed_output(self):
@@ -177,7 +177,7 @@ class TestJstackCommand:
         
         result = self.command.execute(pid="1234")
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jstack -l 1234")
+        self.executor.run.assert_called_once_with("jstack -l 1234", timeout=30)
         self.formatter.format.assert_called_once()
 
 if __name__ == '__main__':

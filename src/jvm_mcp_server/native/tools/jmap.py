@@ -1,6 +1,8 @@
 """Jmap命令实现"""
 
 import os
+import subprocess
+import re
 from enum import Enum
 from typing import Dict, Any, List, Optional
 from ..base import BaseCommand, CommandResult, OutputFormatter
@@ -17,6 +19,75 @@ class JmapCommand(BaseCommand):
     def __init__(self, executor, formatter):
         super().__init__(executor, formatter)
         self.timeout = 60  # 设置默认超时时间为60秒
+        self._jdk_version = None  # 缓存 JDK 版本
+
+    def _get_jdk_version(self) -> int:
+        """获取 JDK 主版本号"""
+        if self._jdk_version is not None:
+            return self._jdk_version
+        
+        try:
+            # 检查是否为远程执行器
+            from ..base import NativeCommandExecutor
+            if isinstance(self.executor, NativeCommandExecutor) and self.executor.ssh_host:
+                # 远程执行 java -version
+                result = self.executor.run('java -version', timeout=10)
+                version_output = result.error if result.error else result.output
+            else:
+                # 本地执行
+                result = subprocess.run(['java', '-version'], 
+                                      capture_output=True, text=True, timeout=10)
+                version_output = result.stderr  # java -version 输出到 stderr
+            
+            # 解析版本号，支持多种格式
+            # 格式1: "openjdk version "11.0.12" 2021-07-20"
+            # 格式2: "java version "1.8.0_291""
+            # 格式3: "openjdk version "17.0.15" 2025-04-15 LTS"
+            version_patterns = [
+                r'version "1\.(\d+)',  # 匹配 "1.8.0_291"，优先放前面
+                r'version "(\d+)',  # 匹配 "11.0.12" 或 "17.0.15"
+            ]
+            
+            for pattern in version_patterns:
+                version_match = re.search(pattern, version_output)
+                if version_match:
+                    version_str = version_match.group(1)
+                    if pattern == r'version "1\.(\d+)':
+                        # 对于 "1.8" 格式，返回 8
+                        self._jdk_version = int(version_str)
+                    else:
+                        # 对于 "11" 或 "17" 格式，直接返回
+                        self._jdk_version = int(version_str)
+                    break
+            else:
+                # 如果无法解析，假设是低版本
+                self._jdk_version = 8
+                
+        except Exception as e:
+            # 如果无法获取版本，假设是低版本
+            self._jdk_version = 8
+        
+        return self._jdk_version
+
+    def _is_modern_jdk(self) -> bool:
+        """判断是否为现代 JDK (9+)"""
+        return self._get_jdk_version() >= 9
+
+    def _test_jhsdb_availability(self) -> bool:
+        """测试 jhsdb 命令是否可用"""
+        try:
+            from ..base import NativeCommandExecutor
+            if isinstance(self.executor, NativeCommandExecutor) and self.executor.ssh_host:
+                # 远程测试
+                result = self.executor.run('jhsdb --help', timeout=5)
+                return result.success
+            else:
+                # 本地测试
+                result = subprocess.run(['jhsdb', '--help'], 
+                                      capture_output=True, text=True, timeout=5)
+                return result.returncode == 0
+        except Exception:
+            return False
 
     def get_command(self, pid: str, operation: JmapOperation = JmapOperation.HEAP,
                     dump_file: Optional[str] = None, live_only: bool = False,
@@ -32,8 +103,21 @@ class JmapCommand(BaseCommand):
         Returns:
             str: jmap命令字符串
         """
+        # 验证 pid 参数
+        if not pid or not pid.strip():
+            raise ValueError("Process ID is required")
+        
+        try:
+            int(pid)  # 验证 pid 是否为有效数字
+        except ValueError:
+            raise ValueError(f"Invalid process ID: {pid}")
+        
         if operation == JmapOperation.HEAP:
-            return f'jmap -heap {pid}'
+            # 对于现代 JDK，优先尝试 jhsdb，如果不可用则回退到传统 jmap
+            if self._is_modern_jdk() and self._test_jhsdb_availability():
+                return f'jhsdb jmap --heap --pid {pid}'
+            else:
+                return f'jmap -heap {pid}'
         elif operation == JmapOperation.HISTO:
             live_flag = " -live" if live_only else ""
             return f'jmap -histo{live_flag} {pid}'

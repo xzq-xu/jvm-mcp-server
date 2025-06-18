@@ -66,7 +66,7 @@ class TestJinfoCommand:
         
         result = self.command.execute(pid="1234", option=JinfoOption.FLAGS)
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jinfo -flags 1234")
+        self.executor.run.assert_called_once_with("jinfo -flags 1234", timeout=30)
         self.formatter.format.assert_called_once()
 
     def test_execute_sysprops_success(self):
@@ -101,7 +101,7 @@ class TestJinfoCommand:
         
         result = self.command.execute(pid="1234", option=JinfoOption.SYSPROPS)
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jinfo -sysprops 1234")
+        self.executor.run.assert_called_once_with("jinfo -sysprops 1234", timeout=30)
         self.formatter.format.assert_called_once()
 
     def test_execute_all_success(self):
@@ -136,7 +136,7 @@ class TestJinfoCommand:
         
         result = self.command.execute(pid="1234", option=JinfoOption.ALL)
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jinfo 1234")
+        self.executor.run.assert_called_once_with("jinfo 1234", timeout=30)
         self.formatter.format.assert_called_once()
 
     def test_execute_failure(self):
@@ -162,7 +162,7 @@ class TestJinfoCommand:
         
         result = self.command.execute(pid="1234")
         assert result == expected_result
-        self.executor.run.assert_called_once_with("jinfo 1234")
+        self.executor.run.assert_called_once_with("jinfo 1234", timeout=30)
         self.formatter.format.assert_called_once()
 
 if __name__ == '__main__':

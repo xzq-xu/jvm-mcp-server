@@ -4,7 +4,7 @@ import json
 import time
 import os
 import re
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 
 from mcp.server.fastmcp import FastMCP
 from .native.base import NativeCommandExecutor
@@ -22,7 +22,7 @@ class JvmMcpServer:
         """
         初始化JVM MCP服务器
         Args:
-            name: 服务器名称
+            name (str): 服务器名称
 
         Environment Variables:
             SSH_HOST: SSH连接地址，格式为 user@host，不存在则表示本地连接
@@ -60,11 +60,55 @@ class JvmMcpServer:
             self.executor = NativeCommandExecutor()
         self._setup_tools()
 
+    def _validate_and_convert_id(self, value: Union[int, str, None], param_name: str = "ID") -> Optional[int]:
+        """
+        验证并转换ID参数，支持int和str类型的数字参数
+        
+        Args:
+            value: 要转换的值，可以是int、str或None
+            param_name: 参数名称，用于错误信息
+            
+        Returns:
+            转换后的整数值，如果输入为None则返回None
+            
+        Raises:
+            ValueError: 如果无法转换为有效的整数
+        """
+        if value is None:
+            return None
+            
+        if isinstance(value, int):
+            return value
+            
+        if isinstance(value, str):
+            # 去除前后空白字符
+            value = value.strip()
+            if not value:
+                return None
+                
+            try:
+                # 支持十六进制格式（如0x2c03）和十进制格式
+                if value.lower().startswith('0x'):
+                    return int(value, 16)
+                else:
+                    return int(value)
+            except ValueError:
+                raise ValueError(f"Invalid {param_name}: '{value}' cannot be converted to integer")
+        
+        raise ValueError(f"Invalid {param_name} type: expected int, str or None, got {type(value)}")
+
     def _setup_tools(self):
         """设置MCP工具"""
         @self.mcp.tool()
         def list_java_processes() -> List[Dict[str, str]]:
-            """列出所有Java进程"""
+            """列出所有Java进程
+
+            Returns:
+                List[Dict[str, str]]: 包含Java进程信息的列表，每个进程包含以下字段：
+                    - pid (str): 进程ID
+                    - name (str): 进程名称
+                    - args (str): 进程参数
+            """
             cmd = JpsCommand(self.executor, JpsFormatter())
             result = cmd.execute()
             processes = []
@@ -74,22 +118,108 @@ class JvmMcpServer:
             return processes
 
         @self.mcp.tool()
-        def get_thread_info(pid: Optional[int] = None) -> Dict:
-            """获取指定进程的线程信息"""
+        def get_thread_info(pid: Union[int, str, None] = None) -> Dict:
+            """获取指定进程的线程信息
+
+            Args:
+                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）。
+                    支持以下格式：
+                    - 字符串形式的数字："12345"
+                    - 整数：12345
+                    - None：将返回错误信息
+
+            Returns:
+                Dict: 包含线程信息的字典，包含以下字段：
+                    - threads (List[Dict]): 线程信息列表
+                    - thread_count (int): 线程数量
+                    - raw_output (str): 原始输出
+                    - timestamp (float): 时间戳
+                    - success (bool): 是否成功
+                    - error (Optional[str]): 错误信息
+            """
+            try:
+                validated_pid = self._validate_and_convert_id(pid, "process ID")
+                if validated_pid is None:
+                    return {
+                        "threads": [],
+                        "thread_count": 0,
+                        "raw_output": "",
+                        "timestamp": time.time(),
+                        "success": False,
+                        "error": "Invalid process ID"
+                    }
+            except ValueError as e:
+                return {
+                    "threads": [],
+                    "thread_count": 0,
+                    "raw_output": "",
+                    "timestamp": time.time(),
+                    "success": False,
+                    "error": str(e)
+                }
+            
             cmd = JstackCommand(self.executor, JstackFormatter())
-            result = cmd.execute(str(pid) if pid is not None else "")
+            result = cmd.execute(str(validated_pid))
+            
+            if not result.get('success', False):
+                return {
+                    "threads": [],
+                    "thread_count": 0,
+                    "raw_output": result.get('output', ''),
+                    "timestamp": time.time(),
+                    "success": False,
+                    "error": result.get('error', 'Failed to execute jstack command')
+                }
+            
+            threads = result.get('threads', [])
+            
+            # 返回格式化后的结果，包含 threads 字段
             return {
+                "threads": threads,
+                "thread_count": len(threads),
                 "raw_output": result.get('output', ''),
                 "timestamp": time.time(),
-                "success": result.get('success', False),
-                "error": result.get('error')
+                "success": True,
+                "error": None
                 }
 
         @self.mcp.tool()
-        def get_jvm_info(pid: Optional[int] = None) -> Dict:
-            """获取JVM基础信息"""
+        def get_jvm_info(pid: Union[int, str, None] = None) -> Dict:
+            """获取JVM基础信息
+
+            Args:
+                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）。
+                    支持以下格式：
+                    - 字符串形式的数字："12345"
+                    - 整数：12345
+                    - None：将返回错误信息
+
+            Returns:
+                Dict: 包含JVM信息的字典，包含以下字段：
+                    - raw_output (str): 原始输出
+                    - timestamp (float): 时间戳
+                    - success (bool): 是否成功
+                    - error (Optional[str]): 错误信息
+            """
+            try:
+                validated_pid = self._validate_and_convert_id(pid, "process ID")
+                if validated_pid is None:
+                    return {
+                        "raw_output": "",
+                        "timestamp": time.time(),
+                        "success": False,
+                        "error": "Invalid process ID"
+                    }
+            except ValueError as e:
+                return {
+                    "raw_output": "",
+                    "timestamp": time.time(),
+                    "success": False,
+                    "error": str(e)
+                }
+            
             cmd = JinfoCommand(self.executor, JinfoFormatter())
-            result = cmd.execute(str(pid) if pid is not None else "")
+            result = cmd.execute(str(validated_pid))
             return {
                 "raw_output": result.get('output', ''),
                 "timestamp": time.time(),
@@ -98,10 +228,42 @@ class JvmMcpServer:
                 }
 
         @self.mcp.tool()
-        def get_memory_info(pid: Optional[int] = None) -> Dict:
-            """获取内存使用情况"""
+        def get_memory_info(pid: Union[int, str, None] = None) -> Dict:
+            """获取内存使用情况
+
+            Args:
+                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）。
+                    支持以下格式：
+                    - 字符串形式的数字："12345"
+                    - 整数：12345
+                    - None：将返回错误信息
+
+            Returns:
+                Dict: 包含内存信息的字典，包含以下字段：
+                    - raw_output (str): 原始输出
+                    - timestamp (float): 时间戳
+                    - success (bool): 是否成功
+                    - error (Optional[str]): 错误信息
+            """    
+            try:
+                validated_pid = self._validate_and_convert_id(pid, "process ID")
+                if validated_pid is None:
+                    return {
+                        "raw_output": "",
+                        "timestamp": time.time(),
+                        "success": False,
+                        "error": "Invalid process ID"
+                    }
+            except ValueError as e:
+                return {
+                    "raw_output": "",
+                    "timestamp": time.time(),
+                    "success": False,
+                    "error": str(e)
+                }
+            
             cmd = JmapCommand(self.executor, JmapHeapFormatter())
-            result = cmd.execute(str(pid) if pid is not None else "")
+            result = cmd.execute(str(validated_pid))
             return {
                 "raw_output": result.get('output', ''),
                 "timestamp": time.time(),
@@ -110,128 +272,315 @@ class JvmMcpServer:
                 }
 
         @self.mcp.tool()
-        def get_stack_trace(pid: Optional[int] = None, thread_id: Optional[int] = None, top_n: Optional[int] = None,
-                            find_blocking: bool = False, interval: Optional[int] = None,
-                            show_all: bool = False) -> Dict:
-            """获取线程堆栈信息（仅支持全部线程）"""
+        def get_stack_trace(pid: Union[int, str, None] = None, thread_id: Union[int, str, None] = None, 
+                            top_n: Union[int, str, None] = 5, find_blocking: bool = False, 
+                            interval: Union[int, str, None] = None, show_all: bool = False) -> Dict:
+            """获取线程堆栈信息
+
+            Args:
+                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                thread_id (Union[int, str, None]): 线程ID，推荐使用字符串形式。支持十六进制（如："0x2c03"）
+                top_n (Union[int, str, None]): 显示前N个线程，推荐使用字符串形式（如："5"），默认值为"5"
+                find_blocking (bool): 是否只查找阻塞线程（BLOCKED状态或等待锁的线程）
+                interval (Union[int, str, None]): 采样间隔，推荐使用字符串形式（如："1000"表示1秒）
+                show_all (bool): 是否显示所有信息
+
+            Returns:
+                Dict: 包含线程堆栈信息的字典，包含以下字段：
+                    - threads (List[Dict]): 线程信息列表
+                    - thread_count (int): 线程数量
+                    - raw_output (str): 原始输出
+                    - timestamp (float): 时间戳
+                    - success (bool): 是否成功
+                    - error (Optional[str]): 错误信息
+            """
+            
+            try:
+                validated_pid = self._validate_and_convert_id(pid, "process ID")
+                if validated_pid is None:
+                    return {
+                        "raw_output": "",
+                        "timestamp": time.time(),
+                        "success": False,
+                        "error": "Invalid process ID"
+                    }
+                
+                validated_thread_id = self._validate_and_convert_id(thread_id, "thread ID")
+                validated_top_n = self._validate_and_convert_id(top_n, "top_n")
+                # 设置默认值
+                if validated_top_n is None:
+                    validated_top_n = 5
+                    
+            except ValueError as e:
+                return {
+                    "raw_output": "",
+                    "timestamp": time.time(),
+                    "success": False,
+                    "error": str(e)
+                }
+            
             cmd = JstackCommand(self.executor, JstackFormatter())
-            result = cmd.execute(str(pid) if pid is not None else "")
+            result = cmd.execute(str(validated_pid))
+            
+            if not result.get('success', False):
+                return {
+                    "threads": [],
+                    "thread_count": 0,
+                    "raw_output": result.get('output', ''),
+                    "timestamp": time.time(),
+                    "success": False,
+                    "error": result.get('error', 'Failed to execute jstack command')
+                }
+            
+            threads = result.get('threads', [])
+            
+            # 处理 find_blocking：筛选阻塞线程
+            if find_blocking:
+                blocking_threads = []
+                for thread in threads:
+                    state = thread.get('state', '').upper()
+                    locks = thread.get('locks', [])
+                    
+                    # 检查是否为阻塞状态
+                    is_blocked = (
+                        'BLOCKED' in state or
+                        any('waiting to lock' in lock.lower() for lock in locks) or
+                        any('parking to wait' in lock.lower() for lock in locks)
+                    )
+                    
+                    if is_blocked:
+                        blocking_threads.append(thread)
+                
+                threads = blocking_threads
+            
+            # 处理 thread_id：筛选指定线程
+            if validated_thread_id is not None:
+                target_threads = []
+                # 支持十进制和十六进制
+                target_nid_hex = hex(validated_thread_id) if isinstance(validated_thread_id, int) else str(validated_thread_id)
+                target_nid_dec = str(validated_thread_id)
+                
+                for thread in threads:
+                    thread_nid = thread.get('nid', '')
+                    thread_tid = thread.get('thread_id')
+                    
+                    # 匹配nid（十六进制）或thread_id（十进制）
+                    if (thread_nid == target_nid_hex or 
+                        thread_nid == target_nid_dec or
+                        thread_tid == validated_thread_id):
+                        target_threads.append(thread)
+                
+                threads = target_threads
+            
+            # 处理 top_n：取前N个线程
+            if validated_top_n is not None and validated_top_n > 0:
+                threads = threads[:validated_top_n]
+            
+            # 返回格式化后的结果，包含 threads 字段
             return {
+                "threads": threads,
+                "thread_count": len(threads),
                 "raw_output": result.get('output', ''),
                 "timestamp": time.time(),
-                "success": result.get('success', False),
-                "error": result.get('error')
+                "success": True,
+                "error": None
                 }
 
-        # @self.mcp.tool()
-        def get_class_info(pid: int, class_pattern: str,
+        @self.mcp.tool()
+        def get_class_info(pid: Union[int, str, None] = None, class_pattern: str = "",
                            show_detail: bool = False,
                            show_field: bool = False,
                            use_regex: bool = False,
-                           depth: int = None,
-                           classloader_hash: str = None,
-                           classloader_class: str = None,
-                           max_matches: int = None) -> Dict:
+                           depth: Union[int, str, None] = None,
+                           classloader_hash: Optional[str] = None,
+                           classloader_class: Optional[str] = None,
+                           max_matches: Union[int, str, None] = None) -> Dict:
             """获取类信息
 
             Args:
-                pid: 进程ID
-                class_pattern: 类名表达式匹配
-                show_detail: 是否显示详细信息，默认false
-                show_field: 是否显示成员变量信息(需要show_detail=True)，默认false
-                use_regex: 是否使用正则表达式匹配，默认false
-                depth: 指定输出静态变量时属性的遍历深度，默认1
-                classloader_hash: 指定class的ClassLoader的hashcode，默认None
-                classloader_class: 指定执行表达式的ClassLoader的class name，默认None
-                max_matches: 具有详细信息的匹配类的最大数量
+                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                class_pattern (str): 类名表达式匹配
+                show_detail (bool): 是否显示详细信息，默认false
+                show_field (bool): 是否显示成员变量信息(需要show_detail=True)，默认false
+                use_regex (bool): 是否使用正则表达式匹配，默认false
+                depth (Union[int, str, None]): 属性遍历深度，推荐使用字符串形式（如："1"），默认值为"1"
+                classloader_hash (Optional[str]): 指定class的ClassLoader的hashcode
+                classloader_class (Optional[str]): 指定执行表达式的ClassLoader的class name
+                max_matches (Union[int, str, None]): 匹配类的最大数量，推荐使用字符串形式（如："50"）
+
+            Returns:
+                Dict: 包含类信息的字典（暂未实现）
             """
             return {"success": False, "error": "未实现/不支持"}
 
-        # @self.mcp.tool()
-        def get_jvm_status(pid: int) -> Dict:
+        @self.mcp.tool()
+        def get_jvm_status(pid: Union[int, str, None] = None) -> Dict:
             """获取JVM整体状态报告
 
             Args:
-                pid: 可选的进程ID，如果不指定则自动选择第一个非arthas的Java进程
+                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）。
+                    如果不指定则自动选择第一个Java进程
 
             Returns:
-                包含JVM状态信息的字典
+                Dict: 包含JVM状态信息的字典（暂未实现）
             """
             return {"success": False, "error": "未实现/不支持"}
 
 
-        # @self.mcp.tool()
-        def get_stack_trace_by_method(pid: int, class_pattern: str, method_pattern: str,
-                                      condition: str = None,
+        @self.mcp.tool()
+        def get_stack_trace_by_method(pid: Union[int, str, None] = None, class_pattern: str = "", 
+                                      method_pattern: str = "", condition: Optional[str] = None,
                                       use_regex: bool = False,
-                                      max_matches: int = None,
-                                      max_times: int = None) -> Dict:
+                                      max_matches: Union[int, str, None] = None,
+                                      max_times: Union[int, str, None] = None) -> Dict:
             """获取方法的调用路径
 
             Args:
-                pid: 进程ID
-                class_pattern: 类名表达式匹配
-                method_pattern: 方法名表达式匹配
-                condition: 条件表达式，例如：'params[0]<0' 或 '#cost>10'
-                use_regex: 是否开启正则表达式匹配，默认为通配符匹配
-                max_matches: 指定Class最大匹配数量，默认值为50
-                max_times: 执行次数限制
+                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                class_pattern (str): 类名表达式匹配
+                method_pattern (str): 方法名表达式匹配
+                condition (Optional[str]): 条件表达式，例如：'params[0]<0' 或 '#cost>10'
+                use_regex (bool): 是否开启正则表达式匹配，默认为通配符匹配
+                max_matches (Union[int, str, None]): Class最大匹配数量，推荐使用字符串形式（如："50"）
+                max_times (Union[int, str, None]): 执行次数限制，推荐使用字符串形式
+
+            Returns:
+                Dict: 包含方法调用路径信息的字典（暂未实现）
             """
             return {"success": False, "error": "未实现/不支持"}
 
-        # @self.mcp.tool()
-        def decompile_class(pid: int, class_pattern: str, method_pattern: str = None) -> Dict:
-            """反编译指定类的源码"""
+        @self.mcp.tool()
+        def decompile_class(pid: Union[int, str, None] = None, class_pattern: str = "", 
+                           method_pattern: Optional[str] = None) -> Dict:
+            """反编译指定类的源码
+
+            Args:
+                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                class_pattern (str): 类名表达式匹配
+                method_pattern (Optional[str]): 可选的方法名表达式
+
+            Returns:
+                Dict: 包含反编译源码的字典（暂未实现）
+            """
             return {"success": False, "error": "未实现/不支持"}
 
-        # @self.mcp.tool()
-        def search_method(pid: int, class_pattern: str, method_pattern: str = None,
-                          show_detail: bool = False,
-                          use_regex: bool = False,
-                          classloader_hash: str = None,
-                          classloader_class: str = None,
-                          max_matches: int = None) -> Dict:
+        @self.mcp.tool()
+        def search_method(pid: Union[int, str, None] = None, class_pattern: str = "", 
+                         method_pattern: Optional[str] = None, show_detail: bool = False,
+                         use_regex: bool = False, classloader_hash: Optional[str] = None,
+                         classloader_class: Optional[str] = None,
+                         max_matches: Union[int, str, None] = None) -> Dict:
             """查看类的方法信息
 
             Args:
-                pid: 进程ID
-                class_pattern: 类名表达式匹配
-                method_pattern: 可选的方法名表达式
-                show_detail: 是否展示每个方法的详细信息
-                use_regex: 是否开启正则表达式匹配，默认为通配符匹配
-                classloader_hash: 指定class的ClassLoader的hashcode
-                classloader_class: 指定执行表达式的ClassLoader的class name
-                max_matches: 具有详细信息的匹配类的最大数量（默认为100）
+                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                class_pattern (str): 类名表达式匹配
+                method_pattern (Optional[str]): 可选的方法名表达式
+                show_detail (bool): 是否展示每个方法的详细信息
+                use_regex (bool): 是否开启正则表达式匹配，默认为通配符匹配
+                classloader_hash (Optional[str]): 指定class的ClassLoader的hashcode
+                classloader_class (Optional[str]): 指定执行表达式的ClassLoader的class name
+                max_matches (Union[int, str, None]): 匹配类的最大数量，推荐使用字符串形式（如："100"）
+
+            Returns:
+                Dict: 包含方法信息的字典（暂未实现）
             """
             return {"success": False, "error": "未实现/不支持"}
 
-        # @self.mcp.tool()
-        def watch_method(pid: int, class_pattern: str, method_pattern: str,
-                         watch_params: bool = True, watch_return: bool = True,
-                         condition: str = None, max_times: int = 10) -> Dict:
-            """监控方法的调用情况"""
+        @self.mcp.tool()
+        def watch_method(pid: Union[int, str, None] = None, class_pattern: str = "", 
+                        method_pattern: str = "", watch_params: bool = True, 
+                        watch_return: bool = True, condition: Optional[str] = None, 
+                        max_times: Union[int, str] = "10") -> Dict:
+            """监控方法的调用情况
+
+            Args:
+                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                class_pattern (str): 类名表达式匹配
+                method_pattern (str): 方法名表达式匹配
+                watch_params (bool): 是否监控方法参数
+                watch_return (bool): 是否监控方法返回值
+                condition (Optional[str]): 条件表达式
+                max_times (Union[int, str]): 最大监控次数，推荐使用字符串形式（如："10"）
+
+            Returns:
+                Dict: 包含方法监控信息的字典（暂未实现）
+            """
             return {"success": False, "error": "未实现/不支持"}
 
         @self.mcp.tool()
-        def get_logger_info(pid: int, name: str = None) -> Dict:
-            """获取logger信息"""
-            return {"success": False, "error": "未实现/不支持"}
+        def get_logger_info(pid: Union[int, str, None] = None, name: Optional[str] = None) -> Dict:
+            """获取logger信息
 
-        # @self.mcp.tool()
-        def set_logger_level(pid: int, name: str, level: str) -> Dict:
-            """设置logger级别"""
-            return {"success": False, "error": "未实现/不支持"}
+            Args:
+                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                name (Optional[str]): logger名称，如果不指定则获取所有logger信息
 
-        # @self.mcp.tool()
-        def get_dashboard(pid: int) -> Dict:
-            """获取系统实时数据面板"""
+            Returns:
+                Dict: 包含logger信息的字典（暂未实现）
+            """
             return {"success": False, "error": "未实现/不支持"}
 
         @self.mcp.tool()
-        def get_jcmd_output(pid: int, subcommand: str = None) -> Dict:
-            """执行 jcmd 子命令"""
+        def set_logger_level(pid: Union[int, str, None] = None, name: str = "", level: str = "") -> Dict:
+            """设置logger级别
+
+            Args:
+                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                name (str): logger名称
+                level (str): 日志级别
+
+            Returns:
+                Dict: 设置结果的字典（暂未实现）
+            """
+            return {"success": False, "error": "未实现/不支持"}
+
+        @self.mcp.tool()
+        def get_dashboard(pid: Union[int, str, None] = None) -> Dict:
+            """获取系统实时数据面板
+
+            Args:
+                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+
+            Returns:
+                Dict: 包含系统实时数据的字典（暂未实现）
+            """
+            return {"success": False, "error": "未实现/不支持"}
+
+        @self.mcp.tool()
+        def get_jcmd_output(pid: Union[int, str, None] = None, subcommand: Optional[str] = None) -> Dict:
+            """执行 jcmd 子命令
+
+            Args:
+                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                subcommand (Optional[str]): jcmd子命令，如果不指定则执行help命令
+
+            Returns:
+                Dict: 包含jcmd执行结果的字典，包含以下字段：
+                    - raw_output (str): 原始输出
+                    - timestamp (float): 时间戳
+                    - success (bool): 是否成功
+                    - error (Optional[str]): 错误信息
+            """
+            try:
+                validated_pid = self._validate_and_convert_id(pid, "process ID")
+                if validated_pid is None:
+                    return {
+                        "raw_output": "",
+                        "timestamp": time.time(),
+                        "success": False,
+                        "error": "Invalid process ID"
+                    }
+            except ValueError as e:
+                return {
+                    "raw_output": "",
+                    "timestamp": time.time(),
+                    "success": False,
+                    "error": str(e)
+                }
+            
             cmd = JcmdCommand(self.executor, JcmdFormatter())
-            result = cmd.execute(str(pid), subcommand=subcommand)
+            result = cmd.execute(str(validated_pid), subcommand=subcommand)
             return {
                 "raw_output": result.get('output', ''),
                 "timestamp": time.time(),
@@ -240,10 +589,46 @@ class JvmMcpServer:
                 }
 
         @self.mcp.tool()
-        def get_jstat_output(pid: int, option: str = None, interval: int = None, count: int = None) -> Dict:
-            """执行 jstat 监控命令"""
+        def get_jstat_output(pid: Union[int, str, None] = None, option: Optional[str] = None, 
+                            interval: Union[int, str, None] = None, count: Union[int, str, None] = None) -> Dict:
+            """执行 jstat 监控命令
+
+            Args:
+                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                option (Optional[str]): jstat选项，如gc、class、compiler等
+                interval (Union[int, str, None]): 采样间隔（毫秒），推荐使用字符串形式（如："1000"表示1秒）
+                count (Union[int, str, None]): 采样次数，推荐使用字符串形式（如："10"）
+
+            Returns:
+                Dict: 包含jstat执行结果的字典，包含以下字段：
+                    - raw_output (str): 原始输出
+                    - timestamp (float): 时间戳
+                    - success (bool): 是否成功
+                    - error (Optional[str]): 错误信息
+            """
+            try:
+                validated_pid = self._validate_and_convert_id(pid, "process ID")
+                if validated_pid is None:
+                    return {
+                        "raw_output": "",
+                        "timestamp": time.time(),
+                        "success": False,
+                        "error": "Invalid process ID"
+                    }
+                
+                validated_interval = self._validate_and_convert_id(interval, "interval")
+                validated_count = self._validate_and_convert_id(count, "count")
+                
+            except ValueError as e:
+                return {
+                    "raw_output": "",
+                    "timestamp": time.time(),
+                    "success": False,
+                    "error": str(e)
+                }
+            
             cmd = JstatCommand(self.executor, JstatFormatter())
-            result = cmd.execute(str(pid), option=option, interval=interval, count=count)
+            result = cmd.execute(str(validated_pid), option=option, interval=validated_interval, count=validated_count)
             return {
                 "raw_output": result.get('output', ''),
                 "timestamp": time.time(),
@@ -254,4 +639,4 @@ class JvmMcpServer:
     def run(self):
         """运行服务器"""
         print(f"Starting {self.name}...")
-        self.mcp.run("sse")
+        self.mcp.run()

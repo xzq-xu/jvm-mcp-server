@@ -181,12 +181,7 @@ class BaseCommand(ABC):
 
             if not result.success:
                 logger.error(f"Command execution failed: {result.error}")
-                return {
-                    "success": False,
-                    "error": result.error,
-                    "timestamp": result.timestamp.isoformat()
-                    }
-
+            # 无论成功与否都调用 formatter
             return self.formatter.format(result)
 
         except Exception as e:
