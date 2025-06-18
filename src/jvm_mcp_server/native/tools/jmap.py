@@ -234,3 +234,4 @@ class JmapDumpFormatter(OutputFormatter):
             "execution_time": result.execution_time,
             "timestamp": result.timestamp.isoformat()
             }
+ 

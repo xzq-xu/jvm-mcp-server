@@ -23,7 +23,7 @@ class JvmMcpServer:
         初始化JVM MCP服务器
         Args:
             name (str): 服务器名称
-
+        
         Environment Variables:
             SSH_HOST: SSH连接地址，格式为 user@host，不存在则表示本地连接
             SSH_PORT: SSH端口，默认22
@@ -50,12 +50,12 @@ class JvmMcpServer:
                 ssh_host = ssh_host_env
         if ssh_host and ssh_user:
             self.executor = NativeCommandExecutor(
-                ssh_host=ssh_host,
-                ssh_port=ssh_port,
+            ssh_host=ssh_host,
+            ssh_port=ssh_port,
                 ssh_user=ssh_user,
                 ssh_password=ssh_password,
                 ssh_key=ssh_key
-                )
+        )
         else:
             self.executor = NativeCommandExecutor()
         self._setup_tools()
@@ -118,15 +118,13 @@ class JvmMcpServer:
             return processes
 
         @self.mcp.tool()
-        def get_thread_info(pid: Union[int, str, None] = None) -> Dict:
+        def get_thread_info(pid: str = "") -> Dict:
             """获取指定进程的线程信息
 
             Args:
-                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）。
-                    支持以下格式：
-                    - 字符串形式的数字："12345"
-                    - 整数：12345
-                    - None：将返回错误信息
+                pid (str): 进程ID，使用字符串形式（如："12345"）。
+                    支持十进制和十六进制格式。
+                    空字符串将返回错误信息。
 
             Returns:
                 Dict: 包含线程信息的字典，包含以下字段：
@@ -138,7 +136,7 @@ class JvmMcpServer:
                     - error (Optional[str]): 错误信息
             """
             try:
-                validated_pid = self._validate_and_convert_id(pid, "process ID")
+                validated_pid = self._validate_and_convert_id(pid if pid else None, "process ID")
                 if validated_pid is None:
                     return {
                         "threads": [],
@@ -181,18 +179,16 @@ class JvmMcpServer:
                 "timestamp": time.time(),
                 "success": True,
                 "error": None
-                }
+            }
 
         @self.mcp.tool()
-        def get_jvm_info(pid: Union[int, str, None] = None) -> Dict:
+        def get_jvm_info(pid: str = "") -> Dict:
             """获取JVM基础信息
 
             Args:
-                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）。
-                    支持以下格式：
-                    - 字符串形式的数字："12345"
-                    - 整数：12345
-                    - None：将返回错误信息
+                pid (str): 进程ID，使用字符串形式（如："12345"）。
+                    支持十进制和十六进制格式。
+                    空字符串将返回错误信息。
 
             Returns:
                 Dict: 包含JVM信息的字典，包含以下字段：
@@ -202,7 +198,7 @@ class JvmMcpServer:
                     - error (Optional[str]): 错误信息
             """
             try:
-                validated_pid = self._validate_and_convert_id(pid, "process ID")
+                validated_pid = self._validate_and_convert_id(pid if pid else None, "process ID")
                 if validated_pid is None:
                     return {
                         "raw_output": "",
@@ -225,18 +221,16 @@ class JvmMcpServer:
                 "timestamp": time.time(),
                 "success": result.get('success', False),
                 "error": result.get('error')
-                }
+            }
 
         @self.mcp.tool()
-        def get_memory_info(pid: Union[int, str, None] = None) -> Dict:
+        def get_memory_info(pid: str = "") -> Dict:
             """获取内存使用情况
 
             Args:
-                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）。
-                    支持以下格式：
-                    - 字符串形式的数字："12345"
-                    - 整数：12345
-                    - None：将返回错误信息
+                pid (str): 进程ID，使用字符串形式（如："12345"）。
+                    支持十进制和十六进制格式。
+                    空字符串将返回错误信息。
 
             Returns:
                 Dict: 包含内存信息的字典，包含以下字段：
@@ -246,7 +240,7 @@ class JvmMcpServer:
                     - error (Optional[str]): 错误信息
             """    
             try:
-                validated_pid = self._validate_and_convert_id(pid, "process ID")
+                validated_pid = self._validate_and_convert_id(pid if pid else None, "process ID")
                 if validated_pid is None:
                     return {
                         "raw_output": "",
@@ -269,20 +263,23 @@ class JvmMcpServer:
                 "timestamp": time.time(),
                 "success": result.get('success', False),
                 "error": result.get('error')
-                }
+            }
 
         @self.mcp.tool()
-        def get_stack_trace(pid: Union[int, str, None] = None, thread_id: Union[int, str, None] = None, 
-                            top_n: Union[int, str, None] = 5, find_blocking: bool = False, 
-                            interval: Union[int, str, None] = None, show_all: bool = False) -> Dict:
+        def get_stack_trace(pid: str = "", 
+                            thread_id: str = "", 
+                            top_n: str = "5", 
+                            find_blocking: bool = False, 
+                            interval: str = "", 
+                            show_all: bool = False) -> Dict:
             """获取线程堆栈信息
-
+            
             Args:
-                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
-                thread_id (Union[int, str, None]): 线程ID，推荐使用字符串形式。支持十六进制（如："0x2c03"）
-                top_n (Union[int, str, None]): 显示前N个线程，推荐使用字符串形式（如："5"），默认值为"5"
+                pid (str): 进程ID，使用字符串形式（如："12345"）
+                thread_id (str): 线程ID，使用字符串形式。支持十六进制（如："0x2c03"）
+                top_n (str): 显示前N个线程，使用字符串形式（如："5"），默认值为"5"
                 find_blocking (bool): 是否只查找阻塞线程（BLOCKED状态或等待锁的线程）
-                interval (Union[int, str, None]): 采样间隔，推荐使用字符串形式（如："1000"表示1秒）
+                interval (str): 采样间隔，使用字符串形式（如："1000"表示1秒）
                 show_all (bool): 是否显示所有信息
 
             Returns:
@@ -296,7 +293,7 @@ class JvmMcpServer:
             """
             
             try:
-                validated_pid = self._validate_and_convert_id(pid, "process ID")
+                validated_pid = self._validate_and_convert_id(pid if pid else None, "process ID")
                 if validated_pid is None:
                     return {
                         "raw_output": "",
@@ -305,8 +302,8 @@ class JvmMcpServer:
                         "error": "Invalid process ID"
                     }
                 
-                validated_thread_id = self._validate_and_convert_id(thread_id, "thread ID")
-                validated_top_n = self._validate_and_convert_id(top_n, "top_n")
+                validated_thread_id = self._validate_and_convert_id(thread_id if thread_id else None, "thread ID")
+                validated_top_n = self._validate_and_convert_id(top_n if top_n else None, "top_n")
                 # 设置默认值
                 if validated_top_n is None:
                     validated_top_n = 5
@@ -384,43 +381,83 @@ class JvmMcpServer:
                 "timestamp": time.time(),
                 "success": True,
                 "error": None
-                }
+            }
 
         @self.mcp.tool()
-        def get_class_info(pid: Union[int, str, None] = None, class_pattern: str = "",
-                           show_detail: bool = False,
-                           show_field: bool = False,
-                           use_regex: bool = False,
-                           depth: Union[int, str, None] = None,
-                           classloader_hash: Optional[str] = None,
-                           classloader_class: Optional[str] = None,
-                           max_matches: Union[int, str, None] = None) -> Dict:
-            """获取类信息
-
+        def get_class_info(pid: str = "", 
+                          class_pattern: str = "",
+                          show_detail: bool = False,
+                          show_field: bool = False,
+                          use_regex: bool = False,
+                          depth: str = "",
+                          classloader_hash: Optional[str] = None,
+                          classloader_class: Optional[str] = None,
+                          max_matches: str = "") -> Dict:
+            """获取类信息 - 使用jmap -histo和javap命令获取完整的类信息
+            
             Args:
-                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                pid (str): 进程ID，使用字符串形式（如："12345"）
                 class_pattern (str): 类名表达式匹配
                 show_detail (bool): 是否显示详细信息，默认false
                 show_field (bool): 是否显示成员变量信息(需要show_detail=True)，默认false
                 use_regex (bool): 是否使用正则表达式匹配，默认false
-                depth (Union[int, str, None]): 属性遍历深度，推荐使用字符串形式（如："1"），默认值为"1"
-                classloader_hash (Optional[str]): 指定class的ClassLoader的hashcode
-                classloader_class (Optional[str]): 指定执行表达式的ClassLoader的class name
-                max_matches (Union[int, str, None]): 匹配类的最大数量，推荐使用字符串形式（如："50"）
+                depth (str): 属性遍历深度（暂未使用）
+                classloader_hash (Optional[str]): 指定class的ClassLoader的hashcode（暂未使用）
+                classloader_class (Optional[str]): 指定执行表达式的ClassLoader的class name（暂未使用）
+                max_matches (str): 匹配类的最大数量，使用字符串形式（如："50"）
 
             Returns:
-                Dict: 包含类信息的字典（暂未实现）
+                Dict: 包含类信息的字典
             """
-            return {"success": False, "error": "未实现/不支持"}
+            # 验证 pid 参数
+            validated_pid = self._validate_and_convert_id(pid if pid else None, "Process ID")
+            if validated_pid is None:
+                return {"success": False, "error": "有效的进程ID是必须的"}
+            
+            # 验证 max_matches 参数
+            validated_max_matches = None
+            if max_matches:
+                validated_max_matches = self._validate_and_convert_id(max_matches, "Max matches")
+                if validated_max_matches is None or validated_max_matches <= 0:
+                    return {"success": False, "error": "max_matches必须是正整数"}
+            
+            try:
+                # 创建 ClassInfoCoordinator 实例
+                from .native.base import NativeCommandExecutor
+                from .native.tools import ClassInfoCoordinator
+                
+                executor = NativeCommandExecutor()
+                coordinator = ClassInfoCoordinator(executor)
+                
+                # 调用协调器获取类信息
+                result = coordinator.get_class_info_parallel(
+                    pid=str(validated_pid),
+                    class_pattern=class_pattern,
+                    show_detail=show_detail,
+                    show_field=show_field,
+                    use_regex=use_regex,
+                    max_matches=validated_max_matches
+                )
+                
+                return result
+                
+            except Exception as e:
+                return {
+                    "success": False,
+                    "error": f"获取类信息时发生错误: {str(e)}",
+                    "classes": [],
+                    "total_matches": 0,
+                    "limited_by_max": False
+                }
 
         @self.mcp.tool()
-        def get_jvm_status(pid: Union[int, str, None] = None) -> Dict:
+        def get_jvm_status(pid: str = "") -> Dict:
             """获取JVM整体状态报告
-
+            
             Args:
-                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）。
+                pid (str): 进程ID，使用字符串形式（如："12345"）。
                     如果不指定则自动选择第一个Java进程
-
+            
             Returns:
                 Dict: 包含JVM状态信息的字典（暂未实现）
             """
@@ -428,21 +465,22 @@ class JvmMcpServer:
 
 
         @self.mcp.tool()
-        def get_stack_trace_by_method(pid: Union[int, str, None] = None, class_pattern: str = "", 
+        def get_stack_trace_by_method(pid: str = "", 
+                                      class_pattern: str = "", 
                                       method_pattern: str = "", condition: Optional[str] = None,
                                       use_regex: bool = False,
-                                      max_matches: Union[int, str, None] = None,
-                                      max_times: Union[int, str, None] = None) -> Dict:
+                                      max_matches: str = "",
+                                      max_times: str = "") -> Dict:
             """获取方法的调用路径
-
+            
             Args:
-                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                pid (str): 进程ID，使用字符串形式（如："12345"）
                 class_pattern (str): 类名表达式匹配
                 method_pattern (str): 方法名表达式匹配
                 condition (Optional[str]): 条件表达式，例如：'params[0]<0' 或 '#cost>10'
                 use_regex (bool): 是否开启正则表达式匹配，默认为通配符匹配
-                max_matches (Union[int, str, None]): Class最大匹配数量，推荐使用字符串形式（如："50"）
-                max_times (Union[int, str, None]): 执行次数限制，推荐使用字符串形式
+                max_matches (str): Class最大匹配数量，使用字符串形式（如："50"）
+                max_times (str): 执行次数限制，使用字符串形式
 
             Returns:
                 Dict: 包含方法调用路径信息的字典（暂未实现）
@@ -450,12 +488,13 @@ class JvmMcpServer:
             return {"success": False, "error": "未实现/不支持"}
 
         @self.mcp.tool()
-        def decompile_class(pid: Union[int, str, None] = None, class_pattern: str = "", 
+        def decompile_class(pid: str = "", 
+                           class_pattern: str = "", 
                            method_pattern: Optional[str] = None) -> Dict:
             """反编译指定类的源码
 
             Args:
-                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                pid (str): 进程ID，使用字符串形式（如："12345"）
                 class_pattern (str): 类名表达式匹配
                 method_pattern (Optional[str]): 可选的方法名表达式
 
@@ -465,22 +504,23 @@ class JvmMcpServer:
             return {"success": False, "error": "未实现/不支持"}
 
         @self.mcp.tool()
-        def search_method(pid: Union[int, str, None] = None, class_pattern: str = "", 
+        def search_method(pid: str = "", 
+                         class_pattern: str = "", 
                          method_pattern: Optional[str] = None, show_detail: bool = False,
                          use_regex: bool = False, classloader_hash: Optional[str] = None,
                          classloader_class: Optional[str] = None,
-                         max_matches: Union[int, str, None] = None) -> Dict:
+                         max_matches: str = "") -> Dict:
             """查看类的方法信息
-
+            
             Args:
-                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                pid (str): 进程ID，使用字符串形式（如："12345"）
                 class_pattern (str): 类名表达式匹配
                 method_pattern (Optional[str]): 可选的方法名表达式
                 show_detail (bool): 是否展示每个方法的详细信息
                 use_regex (bool): 是否开启正则表达式匹配，默认为通配符匹配
                 classloader_hash (Optional[str]): 指定class的ClassLoader的hashcode
                 classloader_class (Optional[str]): 指定执行表达式的ClassLoader的class name
-                max_matches (Union[int, str, None]): 匹配类的最大数量，推荐使用字符串形式（如："100"）
+                max_matches (str): 匹配类的最大数量，使用字符串形式（如："100"）
 
             Returns:
                 Dict: 包含方法信息的字典（暂未实现）
@@ -488,20 +528,21 @@ class JvmMcpServer:
             return {"success": False, "error": "未实现/不支持"}
 
         @self.mcp.tool()
-        def watch_method(pid: Union[int, str, None] = None, class_pattern: str = "", 
+        def watch_method(pid: str = "", 
+                        class_pattern: str = "", 
                         method_pattern: str = "", watch_params: bool = True, 
                         watch_return: bool = True, condition: Optional[str] = None, 
-                        max_times: Union[int, str] = "10") -> Dict:
+                        max_times: str = "10") -> Dict:
             """监控方法的调用情况
 
             Args:
-                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                pid (str): 进程ID，使用字符串形式（如："12345"）
                 class_pattern (str): 类名表达式匹配
                 method_pattern (str): 方法名表达式匹配
                 watch_params (bool): 是否监控方法参数
                 watch_return (bool): 是否监控方法返回值
                 condition (Optional[str]): 条件表达式
-                max_times (Union[int, str]): 最大监控次数，推荐使用字符串形式（如："10"）
+                max_times (str): 最大监控次数，使用字符串形式（如："10"）
 
             Returns:
                 Dict: 包含方法监控信息的字典（暂未实现）
@@ -509,11 +550,12 @@ class JvmMcpServer:
             return {"success": False, "error": "未实现/不支持"}
 
         @self.mcp.tool()
-        def get_logger_info(pid: Union[int, str, None] = None, name: Optional[str] = None) -> Dict:
+        def get_logger_info(pid: str = "", 
+                           name: Optional[str] = None) -> Dict:
             """获取logger信息
 
             Args:
-                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                pid (str): 进程ID，使用字符串形式（如："12345"）
                 name (Optional[str]): logger名称，如果不指定则获取所有logger信息
 
             Returns:
@@ -522,11 +564,12 @@ class JvmMcpServer:
             return {"success": False, "error": "未实现/不支持"}
 
         @self.mcp.tool()
-        def set_logger_level(pid: Union[int, str, None] = None, name: str = "", level: str = "") -> Dict:
+        def set_logger_level(pid: str = "", 
+                            name: str = "", level: str = "") -> Dict:
             """设置logger级别
 
             Args:
-                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                pid (str): 进程ID，使用字符串形式（如："12345"）
                 name (str): logger名称
                 level (str): 日志级别
 
@@ -536,11 +579,11 @@ class JvmMcpServer:
             return {"success": False, "error": "未实现/不支持"}
 
         @self.mcp.tool()
-        def get_dashboard(pid: Union[int, str, None] = None) -> Dict:
+        def get_dashboard(pid: str = "") -> Dict:
             """获取系统实时数据面板
 
             Args:
-                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                pid (str): 进程ID，使用字符串形式（如："12345"）
 
             Returns:
                 Dict: 包含系统实时数据的字典（暂未实现）
@@ -548,11 +591,12 @@ class JvmMcpServer:
             return {"success": False, "error": "未实现/不支持"}
 
         @self.mcp.tool()
-        def get_jcmd_output(pid: Union[int, str, None] = None, subcommand: Optional[str] = None) -> Dict:
+        def get_jcmd_output(pid: str = "", 
+                           subcommand: Optional[str] = None) -> Dict:
             """执行 jcmd 子命令
 
             Args:
-                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                pid (str): 进程ID，使用字符串形式（如："12345"）
                 subcommand (Optional[str]): jcmd子命令，如果不指定则执行help命令
 
             Returns:
@@ -563,7 +607,7 @@ class JvmMcpServer:
                     - error (Optional[str]): 错误信息
             """
             try:
-                validated_pid = self._validate_and_convert_id(pid, "process ID")
+                validated_pid = self._validate_and_convert_id(pid if pid else None, "process ID")
                 if validated_pid is None:
                     return {
                         "raw_output": "",
@@ -586,18 +630,20 @@ class JvmMcpServer:
                 "timestamp": time.time(),
                 "success": result.get('success', False),
                 "error": result.get('error')
-                }
+            }
 
         @self.mcp.tool()
-        def get_jstat_output(pid: Union[int, str, None] = None, option: Optional[str] = None, 
-                            interval: Union[int, str, None] = None, count: Union[int, str, None] = None) -> Dict:
+        def get_jstat_output(pid: str = "", 
+                            option: Optional[str] = None, 
+                            interval: str = "", 
+                            count: str = "") -> Dict:
             """执行 jstat 监控命令
 
             Args:
-                pid (Union[int, str, None]): 进程ID，推荐使用字符串形式（如："12345"）
+                pid (str): 进程ID，使用字符串形式（如："12345"）
                 option (Optional[str]): jstat选项，如gc、class、compiler等
-                interval (Union[int, str, None]): 采样间隔（毫秒），推荐使用字符串形式（如："1000"表示1秒）
-                count (Union[int, str, None]): 采样次数，推荐使用字符串形式（如："10"）
+                interval (str): 采样间隔（毫秒），使用字符串形式（如："1000"表示1秒）
+                count (str): 采样次数，使用字符串形式（如："10"）
 
             Returns:
                 Dict: 包含jstat执行结果的字典，包含以下字段：
@@ -607,7 +653,7 @@ class JvmMcpServer:
                     - error (Optional[str]): 错误信息
             """
             try:
-                validated_pid = self._validate_and_convert_id(pid, "process ID")
+                validated_pid = self._validate_and_convert_id(pid if pid else None, "process ID")
                 if validated_pid is None:
                     return {
                         "raw_output": "",
@@ -616,8 +662,8 @@ class JvmMcpServer:
                         "error": "Invalid process ID"
                     }
                 
-                validated_interval = self._validate_and_convert_id(interval, "interval")
-                validated_count = self._validate_and_convert_id(count, "count")
+                validated_interval = self._validate_and_convert_id(interval if interval else None, "interval")
+                validated_count = self._validate_and_convert_id(count if count else None, "count")
                 
             except ValueError as e:
                 return {
@@ -634,9 +680,9 @@ class JvmMcpServer:
                 "timestamp": time.time(),
                 "success": result.get('success', False),
                 "error": result.get('error')
-                }
+            }
 
     def run(self):
         """运行服务器"""
         print(f"Starting {self.name}...")
-        self.mcp.run()
+        self.mcp.run() 

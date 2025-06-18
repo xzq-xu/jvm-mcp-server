@@ -224,3 +224,4 @@ class CommandFactory:
         executor = self.get_executor(executor_name)
         formatter = self.get_formatter(formatter_name)
         return command_class(executor, formatter)
+ 
