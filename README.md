@@ -8,6 +8,9 @@
 
 [English](README.md) | [中文](README_zh.md)
 
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/xzq-xu-jvm-mcp-server-badge.png)](https://mseep.ai/app/xzq-xu-jvm-mcp-server)
+
+
 A lightweight JVM monitoring and diagnostic MCP (Multi-Agent Communication Protocol) server implementation based on native JDK tools. Provides AI agents with powerful capabilities to monitor and analyze Java applications without requiring third-party tools like Arthas.
 
 ## Features

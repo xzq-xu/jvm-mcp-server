@@ -8,6 +8,9 @@
 
 [English](README.md) | [中文](README_zh.md)
 
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/xzq-xu-jvm-mcp-server-badge.png)](https://mseep.ai/app/xzq-xu-jvm-mcp-server)
+
+
 基于JDK原生工具的轻量级JVM监控和诊断MCP（多智能体通信协议）服务器实现。为AI智能体提供强大的Java应用监控和分析能力，无需依赖Arthas等第三方工具。
 
 ## 功能特点
