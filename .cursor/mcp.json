@@ -1,6 +1,6 @@
 {
     "mcpServers": {
-        "jvm-mcp-server": {
+        "jvm-mcp-server6": {
             "command": "uv",
             "args": [
             "--directory",

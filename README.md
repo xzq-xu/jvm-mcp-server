@@ -1,108 +1,219 @@
-# JVM-MCP-Server Native分支
+# JVM-MCP-Server
 
-## 项目简介
-JVM-MCP-Server的Native分支旨在提供一个不依赖Arthas的JVM监控解决方案。通过使用JDK原生工具（如jps、jstack、jmap等）和系统命令，实现与Arthas类似的功能，为Java应用提供轻量级的监控和诊断能力。
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.6+-blue.svg" alt="Python Version">
+  <img src="https://img.shields.io/badge/JDK-8+-green.svg" alt="JDK Version">
+  <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License">
+</p>
 
-## 实现原理
-不同于主分支使用Arthas作为核心实现，Native分支直接调用以下工具和命令：
+[English](README.md) | [中文](README_zh.md)
 
-### JDK工具
-- jps：用于列出Java进程
-- jstack：获取线程堆栈信息
-- jmap：获取内存相关信息
-- jinfo：获取JVM配置信息
-- jstat：获取JVM统计信息
-- javap：用于类信息查看和反编译
+A lightweight JVM monitoring and diagnostic MCP (Multi-Agent Communication Protocol) server implementation based on native JDK tools. Provides AI agents with powerful capabilities to monitor and analyze Java applications without requiring third-party tools like Arthas.
 
-### 系统命令
-- ps：进程管理
-- top：系统资源监控
-- grep/awk：文本处理
-- kill：进程控制
+## Features
 
-## 主要功能
+- **Zero Dependencies**: Uses only native JDK tools (jps, jstack, jmap, etc.)
+- **Lightweight**: Minimal resource consumption compared to agent-based solutions
+- **High Compatibility**: Works with all Java versions and platforms
+- **Non-Intrusive**: No modifications to target applications required
+- **Secure**: Uses only JDK certified tools and commands
+- **Remote Monitoring**: Support for both local and remote JVM monitoring via SSH
 
-### 基础监控
-1. Java进程列表查看
-2. JVM基础信息获取
-3. 内存使用情况监控
-4. 线程信息查看
-5. 堆栈信息获取
-6. 类信息查看
+## Core Capabilities
 
-### 高级特性
-1. 方法调用路径分析
-2. 类反编译
-3. 方法搜索
-4. 方法监控
-5. 日志级别管理
-6. 系统资源面板
+### Basic Monitoring
+- Java process listing and identification
+- JVM basic information retrieval
+- Memory usage monitoring
+- Thread information and stack trace analysis
+- Class loading statistics
+- Detailed class structure information
 
-## 优势特点
-1. 零依赖：不需要额外的第三方工具
-2. 轻量级：最小化资源占用
-3. 高兼容性：适用于所有Java版本
-4. 低侵入性：不需要修改目标应用
-5. 安全性高：只使用JDK认证的工具
+### Advanced Features
+- Method call path analysis
+- Class decompilation
+- Method search and inspection
+- Method invocation monitoring
+- Logger level management
+- System resource dashboard
 
-## 使用方法
+## System Requirements
 
-### 环境要求
-- JDK 8及以上版本
-- Python 3.6及以上版本
-- Linux/Unix/Windows系统
+- Python 3.6+
+- JDK 8+
+- Linux/Unix/Windows OS
+- SSH access (for remote monitoring)
 
-### 安装步骤
-1. 克隆项目并切换到native分支：
+## Installation
+
+### Using uv (Recommended)
+
 ```bash
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh  # Linux/macOS
+# or
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
+
+# Install the package
+uv pip install jvm-mcp-server
+```
+
+### Using pip
+
+```bash
+pip install jvm-mcp-server
+```
+
+### From Source
+
+```bash
+# Clone the repository
 git clone https://github.com/your-repo/jvm-mcp-server.git
 cd jvm-mcp-server
-git checkout native
+
+# Using uv (recommended)
+uv venv  # Create virtual environment
+uv sync  # Install dependencies
+
+# Or install in development mode
+uv pip install -e .
 ```
 
-2. 安装依赖：
+## Quick Start
+
+### Starting the Server
+
+#### Using uv (Recommended)
+
 ```bash
-pip install -r requirements.txt
+# Local mode
+uv run jvm-mcp-server
+
+# Using environment variables file for remote mode
+uv run --env-file .env jvm-mcp-server
+
+# In specific directory
+uv --directory /path/to/project run --env-file .env jvm-mcp-server
 ```
 
-3. 运行服务：
+#### Using uvx
+
 ```bash
-python src/main.py
+# Local mode
+uvx run jvm-mcp-server
+
+# With environment variables
+uvx run --env-file .env jvm-mcp-server
 ```
 
-### 配置说明
-配置文件位于`config/`目录下，主要包括：
-- config.json：基础配置
-- logging.json：日志配置
-- security.json：安全配置
+#### Using Python directly
 
-## 开发进度
-请查看[Native_TODO.md](Native_TODO.md)文件了解当前开发进度。
+```python
+from jvm_mcp_server import JvmMcpServer
 
-## 注意事项
-1. 需要确保运行用户具有足够的权限执行JDK工具
-2. 在生产环境使用时需要注意性能开销
-3. 某些功能在不同操作系统上可能有差异
-4. 建议在使用前先在测试环境验证
+# Local mode
+server = JvmMcpServer()
+server.run()
 
-## 性能考虑
-1. 命令执行采用异步方式
-2. 实现了结果缓存机制
-3. 支持批量数据处理
-4. 可配置采样频率
-5. 内置资源使用限制
+# Remote mode (via environment variables)
+# Set SSH_HOST, SSH_PORT, SSH_USER, SSH_PASSWORD or SSH_KEY
+import os
+os.environ['SSH_HOST'] = 'user@remote-host'
+os.environ['SSH_PORT'] = '22'
+server = JvmMcpServer()
+server.run()
+```
 
-## 贡献指南
-1. Fork本仓库
-2. 创建功能分支
-3. 提交变更
-4. 发起Pull Request
+### Using with MCP Configuration
 
-## 问题反馈
-如果您在使用过程中遇到任何问题，请：
-1. 查看[常见问题](docs/FAQ.md)
-2. 提交[Issue](https://github.com/your-repo/jvm-mcp-server/issues)
-3. 通过[邮件列表](mailto:your-email@example.com)联系我们
+```json
+{
+  "mcpServers": {
+    "jvm-mcp-server": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/path/to/jvm-mcp-server",
+        "run",
+        "--env-file",
+        "/path/to/jvm-mcp-server/.env",
+        "jvm-mcp-server"
+      ]
+    }
+  }
+}
+```
 
-## 许可证
-本项目采用MIT许可证，详见[LICENSE](LICENSE)文件。 
+## Available Tools
+
+JVM-MCP-Server provides a comprehensive set of tools for JVM monitoring and diagnostics:
+
+- `list_java_processes`: List all Java processes
+- `get_thread_info`: Get thread information for a specific process
+- `get_jvm_info`: Get JVM basic information
+- `get_memory_info`: Get memory usage information
+- `get_stack_trace`: Get thread stack trace information
+- `get_class_info`: Get detailed class information including structure
+- `get_stack_trace_by_method`: Get method call path
+- `decompile_class`: Decompile class source code
+- `search_method`: Search for methods in classes
+- `watch_method`: Monitor method invocations
+- `get_logger_info`: Get logger information
+- `set_logger_level`: Set logger levels
+- `get_dashboard`: Get system resource dashboard
+- `get_jcmd_output`: Execute JDK jcmd commands
+- `get_jstat_output`: Execute JDK jstat commands
+
+For detailed documentation on each tool, see [Available Tools](./doc/available_tools.md).
+
+## Architecture
+
+JVM-MCP-Server is built on a modular architecture:
+
+1. **Command Layer**: Wraps JDK native commands
+2. **Executor Layer**: Handles local and remote command execution
+3. **Formatter Layer**: Processes and formats command output
+4. **MCP Interface**: Exposes functionality through FastMCP protocol
+
+### Key Components
+
+- `BaseCommand`: Abstract base class for all commands
+- `CommandExecutor`: Interface for command execution (local and remote)
+- `OutputFormatter`: Interface for formatting command output
+- `JvmMcpServer`: Main server class that registers all tools
+
+## Development Status
+
+The project is in active development. See [Native_TODO.md](Native_TODO.md) for current progress.
+
+### Completed
+- Core architecture and command framework
+- Basic commands implementation (jps, jstack, jmap, jinfo, jcmd, jstat)
+- Class information retrieval system
+- MCP tool parameter type compatibility fixes
+
+### In Progress
+- Caching mechanism
+- Method tracing
+- Performance monitoring
+- Error handling improvements
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgements
+
+- JDK tools documentation
+- FastMCP protocol specification
+- Contributors and testers 

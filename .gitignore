@@ -14,5 +14,6 @@ wheels/
 arthas-boot.jar
 math-game.jar
 .cursor/
+.vscode/
 .env
 memory-bank/
