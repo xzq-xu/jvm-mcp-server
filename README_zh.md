@@ -180,10 +180,12 @@ JVM-MCP-Server基于模块化架构构建：
 
 ### 核心组件
 
+
 - `BaseCommand`：所有命令的抽象基类
 - `CommandExecutor`：命令执行接口（本地和远程）
 - `OutputFormatter`：命令输出格式化接口
 - `JvmMcpServer`：注册所有工具的主服务器类
+
 
 ## 开发状态
 

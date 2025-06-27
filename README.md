@@ -1,4 +1,4 @@
-# JVM-MCP-Server
+# JVM MCP Server
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.6+-blue.svg" alt="Python Version">
