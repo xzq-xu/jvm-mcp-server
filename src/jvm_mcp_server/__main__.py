@@ -7,5 +7,6 @@ def main():
     server = JvmMcpServer()
     server.run()
 
+
 if __name__ == "__main__":
-    main() 
+    main()

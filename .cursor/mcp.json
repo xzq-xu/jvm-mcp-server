@@ -1,15 +1,13 @@
 {
     "mcpServers": {
-      "jvm-mcp-server": {
-        "command": "uv",
-        "args": [
-          "--directory",
-          "/Users/xzq.xu/Desktop/jvm-mcp-server",
-          "run",
-          "--env-file",
-          "/Users/xzq.xu/Desktop/jvm-mcp-server/.env",
-          "jvm-mcp-server"
-        ]
-      }
+        "jvm-mcp-server6": {
+            "command": "uv",
+            "args": [
+            "--directory",
+            "/Users/xzq/Desktop/Personal/code/jvm-mcp-server",
+            "run",
+            "jvm-mcp-server"
+            ]
+        }
     }
 }
