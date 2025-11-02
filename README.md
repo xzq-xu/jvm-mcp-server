@@ -1,10 +1,14 @@
-[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/xzq-xu-jvm-mcp-server-badge.png)](https://mseep.ai/app/xzq-xu-jvm-mcp-server)
-
 # JVM MCP Server
+
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/xzq-xu-jvm-mcp-server-badge.png)](https://mseep.ai/app/xzq-xu-jvm-mcp-server)
 
 [English](README.md) | [中文](README_zh.md)
 
 A JVM monitoring MCP server implementation based on Arthas, providing a simple and easy-to-use Python interface for monitoring and analyzing Java processes.
+
+<a href="https://glama.ai/mcp/servers/@xzq-xu/jvm-mcp-server">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@xzq-xu/jvm-mcp-server/badge" alt="JVM Server MCP server" />
+</a>
 
 ## Features
 
@@ -153,4 +157,4 @@ If you encounter any issues, please submit an Issue or Pull Request.
 
 ## License
 
-[MIT License](./LICENSE) 
+[MIT License](./LICENSE)
