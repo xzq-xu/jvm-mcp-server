@@ -13,6 +13,10 @@
 
 A lightweight JVM monitoring and diagnostic MCP (Multi-Agent Communication Protocol) server implementation based on native JDK tools. Provides AI agents with powerful capabilities to monitor and analyze Java applications without requiring third-party tools like Arthas.
 
+<a href="https://glama.ai/mcp/servers/@xzq-xu/jvm-mcp-server">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@xzq-xu/jvm-mcp-server/badge" alt="JVM Server MCP server" />
+</a>
+
 ## Features
 
 - **Zero Dependencies**: Uses only native JDK tools (jps, jstack, jmap, etc.)
