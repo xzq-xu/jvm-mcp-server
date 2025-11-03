@@ -4,31 +4,55 @@ build-backend = "hatchling.build"
 
 [project]
 name = "jvm-mcp-server"
-version = "0.1.1"
-description = "基于Arthas的JVM监控MCP服务器实现"
+version = "0.1.0"
+authors = [
+    { name="xzq", email="xzq@example.com" },
+]
+description = "A JVM monitoring and control server"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
-keywords = ["java", "jvm", "monitoring", "arthas", "mcp"]
-authors = [
-    { name = "xzq-xu", email = "1325732643@qq.com" }
-]
 classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: System :: Monitoring",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
 ]
 dependencies = [
-    "mcp[cli]>=1.3.0",
+    "fastapi>=0.68.0",
+    "uvicorn>=0.15.0",
+    "pydantic>=1.8.2",
+    "mcp[cli]",
     "paramiko>=3.5.1",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.21.0",
+]
+dev = [
+    "autopep8>=2.0.0",
+    "flake8>=6.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["src/jvm_mcp_server/tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=jvm_mcp_server --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["src/jvm_mcp_server"]
+omit = ["src/jvm_mcp_server/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
 ]
 
 [project.scripts]
@@ -43,4 +67,32 @@ Issues = "https://github.com/xzq-xu/jvm-mcp-server/issues"
 packages = ["src/jvm_mcp_server"]
 
 [tool.hatch.version]
-path = "src/jvm_mcp_server/__init__.py" 
+path = "src/jvm_mcp_server/__init__.py"
+
+[tool.autopep8]
+# 基本配置
+max_line_length = 120  # 最大行长度
+indent_size = 4  # 缩进大小
+ignore = [
+    "E226",  # 操作符周围缺少空格
+    "E302",  # 期望在函数/类之间有两个空行
+    "E41",   # 代码缩进使用tab
+]
+
+# 格式化行为
+in-place = true           # 直接修改源文件
+recursive = true          # 递归处理子目录
+aggressive = 3            # 最激进的格式化级别
+verbose = 2              # 显示详细的格式化信息
+jobs = 0                 # 使用所有可用CPU核心
+exclude = ".git,.hg,.svn,CVS,.tox,.venv,venv,__pycache__,*.pyc,*.egg-info,*.egg,build,dist"  # 排除的文件/目录
+
+# 代码风格
+hang_closing = true      # 右括号独占一行
+experimental = true      # 启用实验性功能
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.0",
+    "pytest-cov>=6.2.1",
+]
