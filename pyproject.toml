@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "jvm-mcp-server"
 version = "0.1.0"
 authors = [
-    { name="xzq", email="xzq@example.com" },
+    { name="xzq", email="1325732643@qq.com" },
 ]
 description = "A JVM monitoring and control server"
 readme = "README.md"
