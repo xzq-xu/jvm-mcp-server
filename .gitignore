@@ -17,3 +17,8 @@ math-game.jar
 .vscode/
 .env
 memory-bank/
+.specstory/
+.DS_Store
+.idea/
+.cursor/
+.pytest_cache/
