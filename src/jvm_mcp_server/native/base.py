@@ -50,27 +50,93 @@ class CommandExecutor(ABC):
 
 class NativeCommandExecutor(CommandExecutor):
     """
-    支持本地和远程（SSH）命令执行的通用执行器。
-    远程参数通过构造函数传入，若为None则本地执行。
+    支持本地、远程（SSH）和Kubernetes（kubectl exec）命令执行的通用执行器。
+    Universal executor supporting local, remote (SSH), and Kubernetes (kubectl exec) execution.
+
+    执行优先级 / Execution priority: Kubernetes > SSH > Local
     """
 
     def __init__(
             self,
+            # SSH参数 / SSH parameters
             ssh_host: Optional[str] = None,
             ssh_port: int = 22,
             ssh_user: Optional[str] = None,
             ssh_password: Optional[str] = None,
-            ssh_key: Optional[str] = None):
+            ssh_key: Optional[str] = None,
+            # Kubernetes参数 / Kubernetes parameters
+            kube_context: Optional[str] = None,
+            kube_namespace: Optional[str] = None,
+            kube_pod: Optional[str] = None,
+            kube_container: Optional[str] = None):
+        # SSH配置
         self.ssh_host = ssh_host
         self.ssh_port = ssh_port
         self.ssh_user = ssh_user
         self.ssh_password = ssh_password
         self.ssh_key = ssh_key
+        # Kubernetes配置
+        self.kube_context = kube_context
+        self.kube_namespace = kube_namespace
+        self.kube_pod = kube_pod
+        self.kube_container = kube_container
+
+    def _build_kubectl_command(self, command: str) -> str:
+        """构建kubectl exec命令 / Build kubectl exec command
+
+        Args:
+            command: 要在pod中执行的命令 / Command to execute in pod
+
+        Returns:
+            str: 完整的kubectl exec命令 / Complete kubectl exec command
+        """
+        kubectl_parts = ['kubectl']
+
+        if self.kube_context:
+            kubectl_parts.extend(['--context', self.kube_context])
+
+        if self.kube_namespace:
+            kubectl_parts.extend(['--namespace', self.kube_namespace])
+
+        kubectl_parts.extend(['exec', self.kube_pod])
+
+        if self.kube_container:
+            kubectl_parts.extend(['--container', self.kube_container])
+
+        kubectl_parts.extend(['--', 'sh', '-c', command])
+
+        return kubectl_parts
 
     def run(self, command: str, timeout: Optional[int] = None) -> CommandResult:
         start = datetime.now()
-        if self.ssh_host:
-            # 远程执行
+
+        # 优先级1: Kubernetes执行 / Priority 1: Kubernetes execution
+        if self.kube_pod:
+            try:
+                kubectl_cmd = self._build_kubectl_command(command)
+                logger.debug(f"Executing kubectl command: {' '.join(kubectl_cmd)}")
+
+                completed = subprocess.run(
+                    kubectl_cmd,
+                    capture_output=True,
+                    timeout=timeout,
+                    text=True
+                )
+                success = (completed.returncode == 0)
+                return CommandResult(
+                    success,
+                    completed.stdout,
+                    completed.stderr if completed.stderr else None,
+                    (datetime.now()-start).total_seconds(),
+                    datetime.now())
+            except subprocess.TimeoutExpired:
+                return CommandResult(False, '', f'kubectl exec timeout after {timeout}s',
+                                     (datetime.now()-start).total_seconds(), datetime.now())
+            except Exception as e:
+                return CommandResult(False, '', str(e), (datetime.now()-start).total_seconds(), datetime.now())
+
+        # 优先级2: SSH远程执行 / Priority 2: SSH remote execution
+        elif self.ssh_host:
             try:
                 ssh = paramiko.SSHClient()
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -97,8 +163,9 @@ class NativeCommandExecutor(CommandExecutor):
                                      (datetime.now()-start).total_seconds(), datetime.now())
             except Exception as e:
                 return CommandResult(False, '', str(e), (datetime.now()-start).total_seconds(), datetime.now())
+
+        # 优先级3: 本地执行 / Priority 3: Local execution
         else:
-            # 本地执行
             try:
                 completed = subprocess.run(command, shell=True, capture_output=True, timeout=timeout, text=True)
                 success = (completed.returncode == 0)
