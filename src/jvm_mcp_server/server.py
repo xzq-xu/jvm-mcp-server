@@ -29,43 +29,77 @@ class JvmMcpServer:
     def __init__(self, name: str = "native-jvm-monitor"):
         """
         初始化JVM MCP服务器
+        Initialize JVM MCP Server
+
         Args:
-            name (str): 服务器名称
-        
-        Environment Variables:
-            SSH_HOST: SSH连接地址，格式为 user@host，不存在则表示本地连接
-            SSH_PORT: SSH端口，默认22
-            SSH_USER: SSH用户名，不存在则使用密钥认证
-            SSH_PASSWORD: SSH密码，不存在则使用密钥认证
-            SSH_KEY: SSH密钥路径，不存在则使用密码认证
+            name (str): 服务器名称 / Server name
+
+        Environment Variables (priority: Kubernetes > SSH > Local):
+
+            Kubernetes Mode (kubectl exec):
+                KUBE_POD: Pod name (required for K8s mode)
+                KUBE_NAMESPACE: Kubernetes namespace (optional, defaults to current context namespace)
+                KUBE_CONTEXT: Kubernetes context (optional, defaults to current context)
+                KUBE_CONTAINER: Container name (optional, for multi-container pods)
+
+            SSH Mode:
+                SSH_HOST: SSH connection address, format: user@host
+                SSH_PORT: SSH port, default 22
+                SSH_PASSWORD: SSH password (if not using key auth)
+                SSH_KEY: SSH key path (if not using password auth)
+
+            Local Mode:
+                No environment variables needed - commands run locally
         """
         self.name = name
         self.mcp = FastMCP(name)
-        # 读取SSH参数
+
+        # 读取Kubernetes参数 / Read Kubernetes parameters
+        kube_pod = os.getenv('KUBE_POD')
+        kube_namespace = os.getenv('KUBE_NAMESPACE')
+        kube_context = os.getenv('KUBE_CONTEXT')
+        kube_container = os.getenv('KUBE_CONTAINER')
+
+        # 读取SSH参数 / Read SSH parameters
         ssh_host_env = os.getenv('SSH_HOST')
         ssh_port = int(os.getenv('SSH_PORT', '22'))
         ssh_password = os.getenv('SSH_PASSWORD')
         ssh_key = os.getenv('SSH_KEY')
         ssh_host = None
         ssh_user = None
+
         if ssh_host_env:
-            # 支持 root@host 格式
+            # 支持 root@host 格式 / Support user@host format
             m = re.match(r'([^@]+)@(.+)', ssh_host_env)
             if m:
                 ssh_user = m.group(1)
                 ssh_host = m.group(2)
             else:
                 ssh_host = ssh_host_env
-        if ssh_host and ssh_user:
+
+        # 创建执行器 (优先级: Kubernetes > SSH > Local)
+        # Create executor (priority: Kubernetes > SSH > Local)
+        if kube_pod:
+            # Kubernetes模式 / Kubernetes mode
             self.executor = NativeCommandExecutor(
-            ssh_host=ssh_host,
-            ssh_port=ssh_port,
+                kube_context=kube_context,
+                kube_namespace=kube_namespace,
+                kube_pod=kube_pod,
+                kube_container=kube_container
+            )
+        elif ssh_host and ssh_user:
+            # SSH模式 / SSH mode
+            self.executor = NativeCommandExecutor(
+                ssh_host=ssh_host,
+                ssh_port=ssh_port,
                 ssh_user=ssh_user,
                 ssh_password=ssh_password,
                 ssh_key=ssh_key
-        )
+            )
         else:
+            # 本地模式 / Local mode
             self.executor = NativeCommandExecutor()
+
         self._setup_tools()
 
     def _validate_and_convert_id(self, value: Union[int, str, None], param_name: str = "ID") -> Optional[int]:
