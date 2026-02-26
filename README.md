@@ -219,7 +219,33 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Acknowledgements
+NP|## Acknowledgements
+#MH|
+#TK|- JDK tools documentation
+#WY|- FastMCP protocol specification
+#JK|- Contributors and testers
+#BP|
+#KG|## Permission Requirements
+#YM|
+#KB|Some JVM diagnostic commands (jstack, jmap, jinfo, jcmd, etc.) require sufficient permissions to attach to the target JVM process. If you encounter permission errors, try the following solutions:
+#YB|
+#KB|### Common Errors
+#RR|
+#KB|- `Permission denied`: Insufficient permissions
+#YZ|- `Unable to open socket file`: Cannot connect to JVM process
+#KD|- `No such process`: Process does not exist or has exited
+#MH|
+#KB|### Solutions
+#BR|
+#KB|1. **Run with sudo** (recommended): `sudo uv run jvm-mcp-server`
+#XZ|2. **Run as the same user as target Java process**: Check the user ID of the Java process and run as that user
+#HM|3. **Add experimental attach permission to JDK**: Add to JVM startup arguments:
+#   ```
+#   -XX:+AllowRedefinitionToAddDeleteMethods
+#   ```
+#XQ|4. **In Docker**: Ensure the container has sufficient permissions (--privileged or mount /proc)
+#KB|
+#KB|Note: `list_java_processes` uses the jps command and does not require special permissions. Other commands may need to be configured according to the solutions above.
 
 - JDK tools documentation
 - FastMCP protocol specification

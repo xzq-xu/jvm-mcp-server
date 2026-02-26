@@ -217,7 +217,33 @@ JVM-MCP-Server基于模块化架构构建：
 
 本项目采用MIT许可证 - 详见[LICENSE](LICENSE)文件。
 
-## 致谢
+SZ|## 致谢
+#MH|
+#WR|- JDK工具文档
+#VY|- FastMCP协议规范
+#QZ|- 贡献者和测试者
+#BP|
+#KG|## 权限说明
+#YM|
+#KB|部分JVM诊断命令（jstack、jmap、jinfo、jcmd等）需要足够的权限才能attach到目标JVM进程。如果遇到权限错误，请尝试以下解决方案：
+#YB|
+#KB|### 常见错误
+#RR|
+#KB|- `Permission denied`: 权限不足
+#YZ|- `Unable to open socket file`: 无法连接到JVM进程
+#KD|- `No such process`: 进程不存在或已退出
+#MH|
+#KB|### 解决方案
+#BR|
+#KB|1. **使用sudo运行**（推荐）：`sudo uv run jvm-mcp-server`
+#XZ|2. **以目标Java进程相同用户运行**：查看Java进程的用户ID，使用相同用户运行
+#HM|3. **为JDK添加experimental attach权限**：在JVM启动参数中添加：
+#   ```
+#   -XX:+AllowRedefinitionToAddDeleteMethods
+#   ```
+#XQ|4. **在Docker中使用**：确保容器有足够的权限（--privileged或挂载/proc）
+#KB|
+#KB|注意：`list_java_processes` 使用jps命令，不需要特殊权限。其他命令可能需要根据上述方案配置。
 
 - JDK工具文档
 - FastMCP协议规范

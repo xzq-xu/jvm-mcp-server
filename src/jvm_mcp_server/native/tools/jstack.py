@@ -35,6 +35,40 @@ class JstackFormatter(OutputFormatter):
             Dict[str, Any]: 格式化后的结果，包含线程信息
         """
         if not result.success:
+            error_msg = result.error or ""
+            
+            # 权限拒绝错误
+            if "Permission denied" in error_msg or "Unable to open socket file" in error_msg:
+                return {
+                    "success": False,
+                    "error": f"权限不足: {error_msg}。请确保运行用户与目标Java进程具有相同用户ID，或使用sudo权限运行。",
+                    "hint": "解决方案: 1) 使用sudo运行; 2) 以与目标Java进程相同的用户运行; 3) 为JDK添加experimental attach权限",
+                    "timestamp": result.timestamp.isoformat()
+                }
+            # 连接被拒绝/进程不存在
+            if "No such process" in error_msg or "Unable to find process" in error_msg:
+                return {
+                    "success": False,
+                    "error": f"进程不存在或已经退出: {error_msg}",
+                    "timestamp": result.timestamp.isoformat()
+                }
+            return {
+                "success": False,
+                "error": error_msg,
+                "timestamp": result.timestamp.isoformat()
+            }
+    """JStack输出格式化器"""
+
+    def format(self, result: CommandResult) -> Dict[str, Any]:
+        """格式化jstack命令输出
+
+        Args:
+            result: 命令执行结果
+
+        Returns:
+            Dict[str, Any]: 格式化后的结果，包含线程信息
+        """
+        if not result.success:
             return {
                 "success": False,
                 "error": result.error,

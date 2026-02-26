@@ -13,6 +13,33 @@ class JmapOperation(Enum):
     HISTO = "histo"  # 堆内存直方图
     DUMP = "dump"  # 堆内存转储
 
+
+def _format_error(result: CommandResult) -> Dict[str, Any]:
+    """统一的错误格式化处理"""
+    error_msg = result.error or ""
+    
+    # 权限拒绝错误
+    if "Permission denied" in error_msg or "Unable to open socket file" in error_msg:
+        return {
+            "success": False,
+            "error": f"权限不足: {error_msg}。请确保运行用户与目标Java进程具有相同用户ID，或使用sudo权限运行。",
+            "hint": "解决方案: 1) 使用sudo运行; 2) 以与目标Java进程相同的用户运行; 3) 为JDK添加experimental attach权限",
+            "timestamp": result.timestamp.isoformat()
+        }
+    # 连接被拒绝/进程不存在
+    if "No such process" in error_msg or "Unable to find process" in error_msg:
+        return {
+            "success": False,
+            "error": f"进程不存在或已经退出: {error_msg}",
+            "timestamp": result.timestamp.isoformat()
+        }
+    return {
+        "success": False,
+        "error": error_msg,
+        "timestamp": result.timestamp.isoformat()
+    }
+
+
 class JmapCommand(BaseCommand):
     """Jmap命令实现"""
 
@@ -129,22 +156,20 @@ class JmapCommand(BaseCommand):
         else:
             raise ValueError(f"Unsupported operation: {operation}")
 
+
 class JmapHeapFormatter(OutputFormatter):
     """Jmap堆内存概要格式化器（仅文本输出）"""
 
     def format(self, result: CommandResult) -> Dict[str, Any]:
         if not result.success:
-            return {
-                "success": False,
-                "error": result.error,
-                "timestamp": result.timestamp.isoformat()
-                }
+            return _format_error(result)
         return {
             "success": True,
             "output": result.output,
             "execution_time": result.execution_time,
             "timestamp": result.timestamp.isoformat()
-            }
+        }
+
 
 class JmapHistoFormatter(OutputFormatter):
     """Jmap堆内存直方图格式化器"""
@@ -159,11 +184,7 @@ class JmapHistoFormatter(OutputFormatter):
             Dict[str, Any]: 格式化后的结果
         """
         if not result.success:
-            return {
-                "success": False,
-                "error": result.error,
-                "timestamp": result.timestamp.isoformat()
-                }
+            return _format_error(result)
 
         histogram: List[Dict[str, Any]] = []
         total = {"instances": 0, "bytes": 0}
@@ -186,7 +207,7 @@ class JmapHistoFormatter(OutputFormatter):
                         "instances": instances,
                         "bytes": bytes_used,
                         "class_name": class_name
-                        })
+                    })
 
                     total["instances"] += instances
                     total["bytes"] += bytes_used
@@ -199,7 +220,8 @@ class JmapHistoFormatter(OutputFormatter):
             "total": total,
             "execution_time": result.execution_time,
             "timestamp": result.timestamp.isoformat()
-            }
+        }
+
 
 class JmapDumpFormatter(OutputFormatter):
     """Jmap堆内存转储格式化器"""
@@ -214,17 +236,13 @@ class JmapDumpFormatter(OutputFormatter):
             Dict[str, Any]: 格式化后的结果
         """
         if not result.success:
-            return {
-                "success": False,
-                "error": result.error,
-                "timestamp": result.timestamp.isoformat()
-                }
+            return _format_error(result)
 
         # 检查转储文件是否成功创建
         dump_file = None
         for line in result.output.splitlines():
             if "Dumping heap to" in line:
-                dump_file = line.split("Dumping heap to")[-1].strip().split()[0]  # 获取第一个词作为文件路径
+                dump_file = line.split("Dumping heap to")[-1].strip().split()[0]
                 break
 
         return {
@@ -233,5 +251,4 @@ class JmapDumpFormatter(OutputFormatter):
             "file_size": os.path.getsize(dump_file) if dump_file and os.path.exists(dump_file) else None,
             "execution_time": result.execution_time,
             "timestamp": result.timestamp.isoformat()
-            }
- 
+        }

@@ -14,6 +14,14 @@ from .native.tools.jinfo import JinfoCommand, JinfoFormatter
 from .native.tools.jmap import JmapCommand, JmapHeapFormatter
 from .native.tools.jcmd import JcmdCommand, JcmdFormatter
 from .native.tools.jstat import JstatCommand, JstatFormatter
+from .jmx import JMXClient, create_jmx_client
+from .native.base import NativeCommandExecutor
+from .native.tools.jps import JpsCommand, JpsFormatter
+from .native.tools.jstack import JstackCommand, JstackFormatter
+from .native.tools.jinfo import JinfoCommand, JinfoFormatter
+from .native.tools.jmap import JmapCommand, JmapHeapFormatter
+from .native.tools.jcmd import JcmdCommand, JcmdFormatter
+from .native.tools.jstat import JstatCommand, JstatFormatter
 
 class JvmMcpServer:
     """JVM MCP服务器（基于native命令）"""
@@ -674,6 +682,143 @@ class JvmMcpServer:
                 }
             
             cmd = JstatCommand(self.executor, JstatFormatter())
+            result = cmd.execute(str(validated_pid), option=option, interval=validated_interval, count=validated_count)
+            return {
+                "raw_output": result.get('output', ''),
+                "timestamp": time.time(),
+                "success": result.get('success', False),
+                "error": result.get('error')
+            }
+
+        # ========== JMX 远程诊断工具 ==========
+        @self.mcp.tool()
+        def get_jmx_memory_info(pid: str = "", 
+                                ssh_host: str = "",
+                                ssh_port: int = 22,
+                                ssh_user: str = "") -> Dict:
+            """通过 JMX/GC.heap_info 获取内存信息
+            
+            此方法通过 jcmd GC.heap_info 命令获取堆内存信息，适用于无法直接 attach 的场景。
+            
+            Args:
+                pid (str): 进程ID，使用字符串形式（如："12345"）
+                ssh_host (str): SSH 远程主机地址，格式为 user@host
+                ssh_port (int): SSH 端口，默认22
+                ssh_user (str): SSH 用户名
+            
+            Returns:
+                Dict: 包含内存信息的字典
+            """
+            try:
+                validated_pid = self._validate_and_convert_id(pid if pid else None, "process ID")
+                if validated_pid is None:
+                    return {
+                        "success": False,
+                        "error": "有效的进程ID是必须的"
+                    }
+            except ValueError as e:
+                return {
+                    "success": False,
+                    "error": str(e)
+                }
+            
+            # 解析 SSH 参数
+            ssh_host_val = ssh_host if ssh_host else None
+            ssh_user_val = ssh_user if ssh_user else None
+            
+            client = create_jmx_client(
+                pid=str(validated_pid),
+                ssh_host=ssh_host_val,
+                ssh_port=ssh_port,
+                ssh_user=ssh_user_val
+            )
+            return client.get_memory_info()
+
+        @self.mcp.tool()
+        def get_jmx_thread_dump(pid: str = "",
+                                ssh_host: str = "",
+                                ssh_port: int = 22,
+                                ssh_user: str = "") -> Dict:
+            """通过 JMX/Thread.print 获取线程堆栈信息
+            
+            此方法通过 jcmd Thread.print 命令获取线程堆栈信息，适用于远程诊断。
+            
+            Args:
+                pid (str): 进程ID
+                ssh_host (str): SSH 远程主机地址
+                ssh_port (int): SSH 端口
+                ssh_user (str): SSH 用户名
+            
+            Returns:
+                Dict: 包含线程信息的字典
+            """
+            try:
+                validated_pid = self._validate_and_convert_id(pid if pid else None, "process ID")
+                if validated_pid is None:
+                    return {
+                        "success": False,
+                        "error": "有效的进程ID是必须的"
+                    }
+            except ValueError as e:
+                return {
+                    "success": False,
+                    "error": str(e)
+                }
+            
+            ssh_host_val = ssh_host if ssh_host else None
+            ssh_user_val = ssh_user if ssh_user else None
+            
+            client = create_jmx_client(
+                pid=str(validated_pid),
+                ssh_host=ssh_host_val,
+                ssh_port=ssh_port,
+                ssh_user=ssh_user_val
+            )
+            return client.get_thread_info()
+
+        @self.mcp.tool()
+        def get_jmx_gc_histogram(pid: str = "",
+                                ssh_host: str = "",
+                                ssh_port: int = 22,
+                                ssh_user: str = "") -> Dict:
+            """通过 JMX/GC.class_histogram 获取 GC 类直方图
+            
+            此方法通过 jcmd GC.class_histogram 命令获取类的内存使用直方图。
+            
+            Args:
+                pid (str): 进程ID
+                ssh_host (str): SSH 远程主机地址
+                ssh_port (int): SSH 端口
+                ssh_user (str): SSH 用户名
+            
+            Returns:
+                Dict: 包含 GC 直方图信息的字典
+            """
+            try:
+                validated_pid = self._validate_and_convert_id(pid if pid else None, "process ID")
+                if validated_pid is None:
+                    return {
+                        "success": False,
+                        "error": "有效的进程ID是必须的"
+                    }
+            except ValueError as e:
+                return {
+                    "success": False,
+                    "error": str(e)
+                }
+            
+            ssh_host_val = ssh_host if ssh_host else None
+            ssh_user_val = ssh_user if ssh_user else None
+            
+            client = create_jmx_client(
+                pid=str(validated_pid),
+                ssh_host=ssh_host_val,
+                ssh_port=ssh_port,
+                ssh_user=ssh_user_val
+            )
+            return client.get_gc_info()
+
+    def run(self):
             result = cmd.execute(str(validated_pid), option=option, interval=validated_interval, count=validated_count)
             return {
                 "raw_output": result.get('output', ''),
