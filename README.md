@@ -17,6 +17,10 @@ A lightweight JVM monitoring and diagnostic MCP (Multi-Agent Communication Proto
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@xzq-xu/jvm-mcp-server/badge" alt="JVM Server MCP server" />
 </a>
 
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/xzq-xu-jvm-mcp-server).
+
 ## Features
 
 - **Zero Dependencies**: Uses only native JDK tools (jps, jstack, jmap, etc.)
